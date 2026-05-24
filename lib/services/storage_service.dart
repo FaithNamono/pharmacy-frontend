@@ -1,53 +1,47 @@
-import 'dart:convert';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import '../utils/constants.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../models/user.dart';
 
 class StorageService {
-  final FlutterSecureStorage _storage;
+  late SharedPreferences _prefs;
 
-  StorageService(this._storage);
+  Future<void> init() async {
+    _prefs = await SharedPreferences.getInstance();
+  }
 
-  // Token methods
+  Future<void> saveUser(User user) async {
+    await _prefs.setString('user', user.toJsonString());
+  }
+
+  Future<User?> getUser() async {
+    final data = _prefs.getString('user');
+    if (data == null) return null;
+    return User.fromJsonString(data);
+  }
+
   Future<void> saveToken(String token) async {
-    await _storage.write(key: AppConstants.tokenKey, value: token);
+    await _prefs.setString('auth_token', token);
   }
 
   Future<String?> getToken() async {
-    return await _storage.read(key: AppConstants.tokenKey);
+    return _prefs.getString('auth_token');
   }
 
-  Future<void> deleteToken() async {
-    await _storage.delete(key: AppConstants.tokenKey);
+  Future<void> clearToken() async {
+    await _prefs.remove('auth_token');
   }
 
-  // User methods
-  Future<void> saveUser(Map<String, dynamic> user) async {
-    await _storage.write(key: AppConstants.userKey, value: json.encode(user));
+  Future<void> clearUser() async {
+    await _prefs.remove('user');
   }
 
-  Future<Map<String, dynamic>?> getUser() async {
-    final userString = await _storage.read(key: AppConstants.userKey);
-    if (userString != null) {
-      return json.decode(userString);
-    }
-    return null;
-  }
-
-  Future<void> deleteUser() async {
-    await _storage.delete(key: AppConstants.userKey);
-  }
-
-  // Theme methods
-  Future<void> saveThemeMode(String themeMode) async {
-    await _storage.write(key: AppConstants.themeKey, value: themeMode);
-  }
-
-  Future<String?> getThemeMode() async {
-    return await _storage.read(key: AppConstants.themeKey);
-  }
-
-  // Clear all
   Future<void> clearAll() async {
-    await _storage.deleteAll();
+    await _prefs.clear();
   }
+  Future<void> saveThemeMode(String themeIndex) async {
+  await _prefs.setString('theme_mode', themeIndex);
+}
+
+Future<String?> getThemeMode() async {
+  return _prefs.getString('theme_mode');
+}
 }

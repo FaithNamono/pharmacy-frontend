@@ -1,3 +1,4 @@
+// lib/screens/auth/reset_password_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -14,12 +15,12 @@ class ResetPasswordScreen extends StatefulWidget {
   final String? token;
 
   const ResetPasswordScreen({
-    Key? key,
+    super.key,
     required this.email,
     this.otp,
     this.uid,
     this.token,
-  }) : super(key: key);
+  });
 
   @override
   _ResetPasswordScreenState createState() => _ResetPasswordScreenState();
@@ -32,6 +33,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
+  bool _showPasswordStrength = false;
 
   @override
   void dispose() {
@@ -40,24 +42,41 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     super.dispose();
   }
 
+  String _getPasswordStrength(String password) {
+    if (password.isEmpty) return '';
+    if (password.length < 6) return 'Weak';
+    if (password.length >= 8 && 
+        RegExp(r'[A-Z]').hasMatch(password) && 
+        RegExp(r'[0-9]').hasMatch(password)) {
+      return 'Strong';
+    }
+    if (password.length >= 6) return 'Medium';
+    return 'Weak';
+  }
+
+  Color _getStrengthColor(String strength) {
+    switch (strength) {
+      case 'Weak':
+        return Colors.red;
+      case 'Medium':
+        return Colors.orange;
+      case 'Strong':
+        return Colors.green;
+      default:
+        return Colors.grey;
+    }
+  }
+
   Future<void> _handleResetPassword() async {
     if (_formKey.currentState!.validate()) {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       
-      bool success;
+      bool success = false;
       
       if (widget.otp != null) {
-        // Reset with OTP
         success = await authProvider.resetPasswordWithOtp(
           widget.email,
           widget.otp!,
-          _passwordController.text,
-        );
-      } else {
-        // Reset with token
-        success = await authProvider.resetPassword(
-          widget.uid!,
-          widget.token!,
           _passwordController.text,
         );
       }
@@ -79,12 +98,12 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
           ),
           title: Column(
             children: [
-              Icon(
+              const Icon(
                 Icons.check_circle,
                 color: Colors.green,
                 size: 60,
               ),
-              SizedBox(height: 16),
+              const SizedBox(height: 16),
               Text(
                 'Password Reset Successful!',
                 style: GoogleFonts.poppins(
@@ -120,7 +139,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Reset Password'),
+        title: const Text('Reset Password'),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
@@ -128,7 +147,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
         builder: (context, authProvider, child) {
           return SafeArea(
             child: SingleChildScrollView(
-              padding: EdgeInsets.all(AppConstants.paddingLarge),
+              padding: const EdgeInsets.all(24),
               child: Form(
                 key: _formKey,
                 child: Column(
@@ -142,16 +161,16 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                         color: AppConstants.primaryColor.withOpacity(0.1),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(
+                      child: const Icon(
                         Icons.lock_reset,
                         size: 60,
                         color: AppConstants.primaryColor,
                       ),
                     ),
-                    SizedBox(height: 24),
+                    const SizedBox(height: 24),
                     
                     Text(
-                      'Reset Password',
+                      'Create New Password',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.poppins(
                         fontSize: 24,
@@ -159,22 +178,22 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                         color: AppConstants.primaryColor,
                       ),
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     
                     Text(
-                      'Enter your new password below',
+                      'Your new password must be different from your current password',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.poppins(
                         fontSize: 14,
                         color: Colors.grey[600],
                       ),
                     ),
-                    SizedBox(height: 32),
+                    const SizedBox(height: 32),
 
                     // Error message
                     if (authProvider.error != null) ...[
                       Container(
-                        padding: EdgeInsets.all(AppConstants.paddingSmall),
+                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: Colors.red[50],
                           borderRadius: BorderRadius.circular(8),
@@ -186,7 +205,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                           textAlign: TextAlign.center,
                         ),
                       ),
-                      SizedBox(height: 20),
+                      const SizedBox(height: 20),
                     ],
 
                     // Password field
@@ -195,6 +214,11 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                       label: 'New Password',
                       prefixIcon: Icons.lock_outline,
                       obscureText: _obscurePassword,
+                      onChanged: (value) {
+                        setState(() {
+                          _showPasswordStrength = value.isNotEmpty;
+                        });
+                      },
                       suffixIcon: IconButton(
                         icon: Icon(
                           _obscurePassword ? Icons.visibility_off : Icons.visibility,
@@ -207,7 +231,34 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                       ),
                       validator: Validators.password,
                     ),
-                    SizedBox(height: 16),
+                    
+                    // Password strength indicator
+                    if (_showPasswordStrength) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: LinearProgressIndicator(
+                              value: _getPasswordStrength(_passwordController.text) == 'Weak' ? 0.33 :
+                                     _getPasswordStrength(_passwordController.text) == 'Medium' ? 0.66 : 1,
+                              backgroundColor: Colors.grey[200],
+                              color: _getStrengthColor(_getPasswordStrength(_passwordController.text)),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _getPasswordStrength(_passwordController.text),
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              color: _getStrengthColor(_getPasswordStrength(_passwordController.text)),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    
+                    const SizedBox(height: 16),
                     
                     // Confirm Password field
                     CustomTextField(
@@ -235,7 +286,45 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                         return null;
                       },
                     ),
-                    SizedBox(height: 32),
+                    
+                    const SizedBox(height: 16),
+                    
+                    // Password requirements
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[50],
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Password Requirements:',
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey[700],
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          _buildRequirement(
+                            'At least 8 characters',
+                            _passwordController.text.length >= 8,
+                          ),
+                          _buildRequirement(
+                            'Contains at least one number',
+                            RegExp(r'[0-9]').hasMatch(_passwordController.text),
+                          ),
+                          _buildRequirement(
+                            'Contains at least one uppercase letter',
+                            RegExp(r'[A-Z]').hasMatch(_passwordController.text),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    const SizedBox(height: 32),
 
                     // Reset button
                     CustomButton(
@@ -250,6 +339,30 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  Widget _buildRequirement(String text, bool isMet) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Icon(
+            isMet ? Icons.check_circle : Icons.radio_button_unchecked,
+            size: 16,
+            color: isMet ? Colors.green : Colors.grey,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            text,
+            style: GoogleFonts.poppins(
+              fontSize: 11,
+              color: isMet ? Colors.green : Colors.grey[600],
+              decoration: isMet ? TextDecoration.lineThrough : null,
+            ),
+          ),
+        ],
       ),
     );
   }

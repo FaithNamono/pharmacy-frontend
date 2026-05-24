@@ -9,7 +9,7 @@ import '../../widgets/custom_button.dart';
 import '../../utils/constants.dart';
 
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({Key? key}) : super(key: key);
+  const SettingsScreen({super.key});
 
   @override
   _SettingsScreenState createState() => _SettingsScreenState();
@@ -384,7 +384,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         value: value,
         onChanged: (_) => onTap(),
-        activeColor: AppColors.primaryGreen,
+        activeThumbColor: AppColors.primaryGreen,
       ),
     );
   }
@@ -581,7 +581,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Terms of Service'),
-        content: Container(
+        content: SizedBox(
           width: double.maxFinite,
           height: 400,
           child: SingleChildScrollView(
@@ -691,7 +691,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Privacy Policy'),
-        content: Container(
+        content: SizedBox(
           width: double.maxFinite,
           height: 400,
           child: SingleChildScrollView(
@@ -816,9 +816,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
-            Text('• HIPAA compliant data handling'),
-            Text('• GDPR ready'),
-            Text('• ISO 27001 certified infrastructure'),
+            const Text('• HIPAA compliant data handling'),
+            const Text('• GDPR ready'),
+            const Text('• ISO 27001 certified infrastructure'),
           ],
         ),
         actions: [
@@ -889,7 +889,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Open Source Licenses'),
-        content: Container(
+        content: SizedBox(
           width: double.maxFinite,
           height: 300,
           child: ListView(

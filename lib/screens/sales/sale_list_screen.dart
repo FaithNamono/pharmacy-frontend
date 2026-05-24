@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../models/sale.dart';                // ADD THIS
+import '../../models/sale.dart';
 import '../../providers/sale_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/loading_indicator.dart';
 import '../../utils/constants.dart';
 
-
 class SaleListScreen extends StatefulWidget {
-  const SaleListScreen({Key? key}) : super(key: key);
+  const SaleListScreen({super.key});
 
   @override
   _SaleListScreenState createState() => _SaleListScreenState();
@@ -44,26 +43,46 @@ class _SaleListScreenState extends State<SaleListScreen> {
     }
   }
 
-  List<Sale> _getFilteredSales(List<Sale> sales) {
+  List<SaleGroup> _getFilteredSales(List<SaleGroup> saleGroups) {
     final now = DateTime.now();
     switch (_selectedFilter) {
       case 'Today':
-        return sales.where((sale) {
-          return sale.saleDate.year == now.year &&
-                 sale.saleDate.month == now.month &&
-                 sale.saleDate.day == now.day;
+        return saleGroups.where((group) {
+          return group.saleDate.year == now.year &&
+                 group.saleDate.month == now.month &&
+                 group.saleDate.day == now.day;
         }).toList();
       case 'This Week':
         final weekAgo = now.subtract(const Duration(days: 7));
-        return sales.where((sale) => sale.saleDate.isAfter(weekAgo)).toList();
+        return saleGroups.where((group) => group.saleDate.isAfter(weekAgo)).toList();
       case 'This Month':
-        return sales.where((sale) {
-          return sale.saleDate.year == now.year &&
-                 sale.saleDate.month == now.month;
+        return saleGroups.where((group) {
+          return group.saleDate.year == now.year &&
+                 group.saleDate.month == now.month;
         }).toList();
       default:
-        return sales;
+        return saleGroups;
     }
+  }
+
+  void _navigateToSaleDetail(String saleId) {
+    if (saleId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Invalid sale ID'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+    
+    print('🔍 Navigating to sale detail with ID: $saleId');
+    
+    Navigator.pushNamed(
+      context,
+      '/sale-detail',
+      arguments: {'sale_id': saleId},
+    );
   }
 
   @override
@@ -111,11 +130,11 @@ class _SaleListScreenState extends State<SaleListScreen> {
       ),
       body: Consumer<SaleProvider>(
         builder: (context, provider, child) {
-          if (provider.isLoading && provider.sales.isEmpty) {
+          if (provider.isLoading && provider.saleGroups.isEmpty) {
             return const LoadingIndicator();
           }
 
-          final filteredSales = _getFilteredSales(provider.sales);
+          final filteredSales = _getFilteredSales(provider.saleGroups);
 
           if (filteredSales.isEmpty) {
             return Center(
@@ -163,71 +182,16 @@ class _SaleListScreenState extends State<SaleListScreen> {
                   );
                 }
 
-                final sale = filteredSales[index];
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.all(12),
-                    leading: CircleAvatar(
-                      backgroundColor: AppConstants.primaryColor.withOpacity(0.1),
-                      child: Text(
-                        sale.saleId.substring(sale.saleId.length - 4),
-                        style: GoogleFonts.poppins(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: AppConstants.primaryColor,
-                        ),
-                      ),
-                    ),
-                    title: Text(
-                      sale.medicineName,
-                      style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'By: ${sale.staffName}',
-                          style: GoogleFonts.poppins(fontSize: 12),
-                        ),
-                        Text(
-                          '${sale.saleDate.day}/${sale.saleDate.month}/${sale.saleDate.year} ${sale.saleDate.hour}:${sale.saleDate.minute}',
-                          style: GoogleFonts.poppins(
-                            fontSize: 10,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    trailing: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          'UGX ${sale.totalPrice.toStringAsFixed(0)}',
-                          style: GoogleFonts.poppins(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: AppConstants.primaryColor,
-                          ),
-                        ),
-                        Text(
-                          'Qty: ${sale.quantity}',
-                          style: GoogleFonts.poppins(
-                            fontSize: 12,
-                            color: Colors.grey.shade600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    onTap: () {
-                      Navigator.pushNamed(
-                        context,
-                        '/sale-detail',
-                        arguments: {'id': sale.id},
-                      );
-                    },
-                  ),
+                final saleGroup = filteredSales[index];
+                
+                // Skip if saleId is empty
+                if (saleGroup.saleId.isEmpty) {
+                  return const SizedBox.shrink();
+                }
+                
+                return SaleGroupCard(
+                  saleGroup: saleGroup,
+                  onTap: () => _navigateToSaleDetail(saleGroup.saleId),
                 );
               },
             ),
@@ -241,8 +205,8 @@ class _SaleListScreenState extends State<SaleListScreen> {
                   _loadSales();
                 });
               },
-              child: const Icon(Icons.add),
               backgroundColor: AppConstants.primaryColor,
+              child: const Icon(Icons.add),
             )
           : null,
     );
@@ -252,5 +216,147 @@ class _SaleListScreenState extends State<SaleListScreen> {
   void dispose() {
     _scrollController.dispose();
     super.dispose();
+  }
+}
+
+class SaleGroupCard extends StatelessWidget {
+  final SaleGroup saleGroup;
+  final VoidCallback onTap;
+
+  const SaleGroupCard({
+    super.key,
+    required this.saleGroup,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 50,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      color: AppConstants.primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.receipt,
+                      color: AppConstants.primaryColor,
+                      size: 30,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          saleGroup.saleId.isNotEmpty ? saleGroup.saleId : 'SALE-XXXXXX',
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppConstants.primaryColor,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${saleGroup.medicineCount} item${saleGroup.medicineCount > 1 ? 's' : ''} • ${saleGroup.totalItems} unit${saleGroup.totalItems > 1 ? 's' : ''}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          saleGroup.customerName != null && saleGroup.customerName!.isNotEmpty
+                              ? 'Customer: ${saleGroup.customerName} • By: ${saleGroup.staffName}'
+                              : 'By: ${saleGroup.staffName}',
+                          style: GoogleFonts.poppins(
+                            fontSize: 11,
+                            color: Colors.grey.shade500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        'UGX ${saleGroup.totalAmount.toStringAsFixed(0)}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppConstants.primaryColor,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '${saleGroup.saleDate.day}/${saleGroup.saleDate.month}/${saleGroup.saleDate.year}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 10,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              
+              if (saleGroup.items.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
+                  children: saleGroup.items.take(3).map((item) {
+                    return Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        '${item.medicineName} (${item.quantity})',
+                        style: GoogleFonts.poppins(fontSize: 10),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                if (saleGroup.items.length > 3)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      '+${saleGroup.items.length - 3} more',
+                      style: GoogleFonts.poppins(
+                        fontSize: 10,
+                        color: Colors.grey.shade500,
+                      ),
+                    ),
+                  ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

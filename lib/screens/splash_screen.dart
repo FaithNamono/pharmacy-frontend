@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'onboarding_screen.dart';
-import 'auth/login_screen.dart';
 import '../utils/constants.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -23,19 +22,27 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 600), // Even faster animation
     );
     
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeIn),
     );
     
-    _scaleAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.elasticOut),
+    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
     );
     
     _controller.forward();
+    
+    // Pre-cache logo immediately
+    _precacheLogo();
+    
     _navigateToNext();
+  }
+  
+  Future<void> _precacheLogo() async {
+    await precacheImage(const AssetImage('assets/images/logo.jpg'), context);
   }
 
   Future<void> _navigateToNext() async {
@@ -82,7 +89,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Pharmacy Logo
+                // Pharmacy Logo - Optimized for fast loading
                 Container(
                   width: 160,
                   height: 160,
@@ -91,9 +98,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                     borderRadius: BorderRadius.circular(80),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.primaryGreen.withOpacity(0.3),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
+                        color: AppColors.primaryGreen.withOpacity(0.2),
+                        blurRadius: 15,
+                        offset: const Offset(0, 5),
                       ),
                     ],
                   ),
@@ -102,11 +109,17 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                     child: Image.asset(
                       'assets/images/logo.jpg',
                       fit: BoxFit.cover,
+                      cacheWidth: 160, // Reduced to actual display size
+                      cacheHeight: 160, // Reduced to actual display size
                       errorBuilder: (context, error, stackTrace) {
-                        // Fallback if logo not found
+                        // Fallback gradient logo
                         return Container(
                           decoration: BoxDecoration(
-                            color: AppColors.primaryGreen,
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [AppColors.primaryGreen, AppColors.primaryGreen.withOpacity(0.7)],
+                            ),
                             borderRadius: BorderRadius.circular(80),
                           ),
                           child: const Icon(
@@ -120,68 +133,61 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                   ),
                 ),
                 
-                const SizedBox(height: 32),
+                const SizedBox(height: 24), // Reduced spacing
                 
-                // Pharmacy Name
+                // DERVIN Pharmacy Name - Fixed (removed duplicate)
                 RichText(
                   text: TextSpan(
                     children: [
                       TextSpan(
-                        text: 'CT ',
+                        text: 'DERVIN ',
                         style: GoogleFonts.poppins(
-                          fontSize: 36,
+                          fontSize: 34,
                           fontWeight: FontWeight.bold,
                           color: AppColors.primaryGreen,
+                          letterSpacing: -0.5,
                         ),
                       ),
                       TextSpan(
-                        text: 'Pharmacy',
+                        text: 'PHARMACY',
                         style: GoogleFonts.poppins(
-                          fontSize: 36,
+                          fontSize: 34,
                           fontWeight: FontWeight.bold,
                           color: AppColors.darkText,
+                          letterSpacing: -0.5,
                         ),
                       ),
                     ],
                   ),
                 ),
                 
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
                 
-                Text(
-                  AppStrings.fullName,
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    color: AppColors.primaryGreen,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 1,
-                  ),
-                ),
-                
-                const SizedBox(height: 8),
+                // Removed duplicate "DERVIN PHARMACY" text line
                 
                 Text(
                   AppStrings.tagline,
                   style: GoogleFonts.poppins(
-                    fontSize: 14,
+                    fontSize: 13,
                     color: AppColors.darkGrey,
+                    letterSpacing: 0.3,
                   ),
                 ),
                 
-                const SizedBox(height: 50),
+                const SizedBox(height: 40),
                 
                 const CircularProgressIndicator(
                   valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryGreen),
-                  strokeWidth: 3,
+                  strokeWidth: 2.5,
                 ),
                 
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
                 
                 Text(
                   AppStrings.loading,
                   style: GoogleFonts.poppins(
                     color: AppColors.darkGrey,
-                    fontSize: 14,
+                    fontSize: 12,
                   ),
                 ),
               ],

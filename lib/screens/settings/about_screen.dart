@@ -4,7 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../../utils/constants.dart';
 
 class AboutScreen extends StatelessWidget {
-  const AboutScreen({Key? key}) : super(key: key);
+  const AboutScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +38,7 @@ class AboutScreen extends StatelessWidget {
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stackTrace) {
                     return Container(
-                      decoration: BoxDecoration(
+                      decoration: const BoxDecoration(
                         color: AppColors.primaryGreen,
                         shape: BoxShape.circle,
                       ),

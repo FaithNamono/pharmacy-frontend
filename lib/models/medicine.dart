@@ -8,9 +8,21 @@ class Medicine {
   final String categoryName;
   final int supplierId;
   final String supplierName;
-  final double price;
+  
+  // New pricing fields
+  final double unitCost;
+  final double wholesalePrice;
+  final double retailPrice;
+  final double discountPercentage;
+  
+  // Stock fields
   final int quantity;
   final int minStockLevel;
+  final String unitType;
+  final int unitsPerPack;
+  final String barcode;
+  
+  // Expiry fields
   final DateTime expiryDate;
   final String batchNumber;
   final String description;
@@ -28,9 +40,15 @@ class Medicine {
     required this.categoryName,
     required this.supplierId,
     required this.supplierName,
-    required this.price,
+    required this.unitCost,
+    required this.wholesalePrice,
+    required this.retailPrice,
+    required this.discountPercentage,
     required this.quantity,
     required this.minStockLevel,
+    required this.unitType,
+    required this.unitsPerPack,
+    required this.barcode,
     required this.expiryDate,
     required this.batchNumber,
     required this.description,
@@ -42,27 +60,41 @@ class Medicine {
   });
 
   factory Medicine.fromJson(Map<String, dynamic> json) {
-    // Handle price that might be string or number
-    double parsedPrice = 0.0;
-    if (json['price'] is String) {
-      parsedPrice = double.parse(json['price'] as String);
-    } else if (json['price'] is int) {
-      parsedPrice = (json['price'] as int).toDouble();
-    } else if (json['price'] is double) {
-      parsedPrice = json['price'] as double;
+    // Helper function to parse price values
+    double parsePrice(dynamic value) {
+      if (value == null) return 0.0;
+      if (value is String) return double.parse(value);
+      if (value is int) return value.toDouble();
+      if (value is double) return value;
+      return 0.0;
+    }
+
+    // Helper function to parse int values
+    int parseInt(dynamic value) {
+      if (value == null) return 0;
+      if (value is String) return int.parse(value);
+      if (value is int) return value;
+      if (value is double) return value.toInt();
+      return 0;
     }
 
     return Medicine(
-      id: json['id'] is String ? int.parse(json['id']) : json['id'] ?? 0,
+      id: parseInt(json['id']),
       name: json['name'] ?? '',
       genericName: json['generic_name'] ?? '',
-      categoryId: json['category'] is String ? int.parse(json['category']) : json['category'] ?? 0,
+      categoryId: parseInt(json['category']),
       categoryName: json['category_name'] ?? '',
-      supplierId: json['supplier'] is String ? int.parse(json['supplier']) : json['supplier'] ?? 0,
+      supplierId: parseInt(json['supplier']),
       supplierName: json['supplier_name'] ?? '',
-      price: parsedPrice,
-      quantity: json['quantity'] is String ? int.parse(json['quantity']) : json['quantity'] ?? 0,
-      minStockLevel: json['min_stock_level'] is String ? int.parse(json['min_stock_level']) : json['min_stock_level'] ?? 10,
+      unitCost: parsePrice(json['unit_cost']),
+      wholesalePrice: parsePrice(json['wholesale_price']),
+      retailPrice: parsePrice(json['retail_price']),
+      discountPercentage: parsePrice(json['discount_percentage']),
+      quantity: parseInt(json['quantity']),
+      minStockLevel: parseInt(json['min_stock_level']),
+      unitType: json['unit_type'] ?? 'tablet',
+      unitsPerPack: parseInt(json['units_per_pack']),
+      barcode: json['barcode'] ?? '',
       expiryDate: json['expiry_date'] != null 
           ? DateTime.parse(json['expiry_date']) 
           : DateTime.now(),
@@ -86,15 +118,24 @@ class Medicine {
       'generic_name': genericName,
       'category': categoryId,
       'supplier': supplierId,
-      'price': price.toString(),
+      'unit_cost': unitCost,
+      'wholesale_price': wholesalePrice,
+      'retail_price': retailPrice,
+      'discount_percentage': discountPercentage,
       'quantity': quantity,
       'min_stock_level': minStockLevel,
+      'unit_type': unitType,
+      'units_per_pack': unitsPerPack,
+      'barcode': barcode,
       'expiry_date': expiryDate.toIso8601String().split('T')[0],
       'batch_number': batchNumber,
       'description': description,
     };
   }
 
+  // Computed properties for backward compatibility
+  double get price => retailPrice; // Use retail price as default price
+  
   String get stockStatus {
     if (quantity <= 0) return 'Out of Stock';
     if (isLowStock) return 'Low Stock';
@@ -123,4 +164,11 @@ class Medicine {
     final today = DateTime.now();
     return expiryDate.difference(today).inDays;
   }
+
+  // New computed properties
+  double get totalCost => quantity * unitCost;
+  double get totalRetailValue => quantity * retailPrice;
+  double get totalWholesaleValue => quantity * wholesalePrice;
+  double get profitMargin => unitCost > 0 ? ((retailPrice - unitCost) / unitCost) * 100 : 0;
+  double get profitPerUnit => retailPrice - unitCost;
 }

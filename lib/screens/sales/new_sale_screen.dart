@@ -1,33 +1,39 @@
+// lib/screens/sales/new_sale_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../models/medicine.dart';
+import '../../models/sale.dart';
 import '../../providers/medicine_provider.dart';
 import '../../providers/sale_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/custom_button.dart';
-import '../../widgets/custom_textfield.dart';
-import '../../widgets/loading_indicator.dart';
+import '../../services/pdf_service.dart';
 import '../../utils/constants.dart';
-import '../../utils/validators.dart';
 
 class NewSaleScreen extends StatefulWidget {
-  const NewSaleScreen({Key? key}) : super(key: key);
+  const NewSaleScreen({super.key});
 
   @override
   _NewSaleScreenState createState() => _NewSaleScreenState();
 }
 
 class _NewSaleScreenState extends State<NewSaleScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _quantityController = TextEditingController();
-  final _notesController = TextEditingController();
-  
-  Medicine? _selectedMedicine;
-  int _quantity = 1;
-  double _totalPrice = 0;
+  List<CartItem> _cartItems = [];
+  final TextEditingController _customerNameController = TextEditingController();
+  final TextEditingController _notesController = TextEditingController();
+  String _selectedPaymentMethod = 'Cash';
   bool _isLoading = false;
-  String? _expiryError;
+  
+  final List<String> _paymentMethods = ['Cash', 'Mobile Money', 'Bank Transfer'];
+
+  double get _subtotal {
+    if (_cartItems.isEmpty) return 0.0;
+    return _cartItems.fold(0, (sum, item) => sum + item.subtotal);
+  }
+  
+  double get _total => _subtotal;
 
   @override
   void initState() {
@@ -42,96 +48,395 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
 
   @override
   void dispose() {
-    _quantityController.dispose();
+    _customerNameController.dispose();
     _notesController.dispose();
     super.dispose();
   }
 
-  void _updateTotalPrice() {
-    if (_selectedMedicine != null) {
-      setState(() {
-        _totalPrice = _selectedMedicine!.price * _quantity;
-      });
-    }
-  }
-
-  String? _validateMedicine(Medicine? medicine) {
-    if (medicine == null) return null;
-    
-    final today = DateTime.now();
-    final todayMidnight = DateTime(today.year, today.month, today.day);
-    
-    if (medicine.expiryDate.isBefore(todayMidnight)) {
-      return 'This medicine expired on ${medicine.expiryDate.day}/${medicine.expiryDate.month}/${medicine.expiryDate.year} and cannot be sold';
-    }
-    
-    return null;
-  }
-
-  Future<void> _handleSubmit() async {
-    if (_formKey.currentState!.validate()) {
-      if (_selectedMedicine == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please select a medicine'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-
-      // CRITICAL: Check if medicine is expired
-      final today = DateTime.now();
-      final todayMidnight = DateTime(today.year, today.month, today.day);
+  void _addToCart(Medicine medicine, int quantity) {
+    setState(() {
+      final existingIndex = _cartItems.indexWhere(
+        (item) => item.medicine.id == medicine.id
+      );
       
-      if (_selectedMedicine!.expiryDate.isBefore(todayMidnight)) {
-        final errorMsg = 'Cannot sell expired medicine: ${_selectedMedicine!.name} (Expired on ${_selectedMedicine!.expiryDate.day}/${_selectedMedicine!.expiryDate.month}/${_selectedMedicine!.expiryDate.year})';
-        
-        setState(() {
-          _expiryError = errorMsg;
-        });
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('❌ $errorMsg'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
-          ),
-        );
-        return;
+      if (existingIndex != -1) {
+        _cartItems[existingIndex].quantity += quantity;
+      } else {
+        _cartItems.add(CartItem(
+          medicine: medicine,
+          quantity: quantity,
+        ));
       }
+    });
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Added ${medicine.name} x$quantity to cart'),
+        duration: const Duration(seconds: 1),
+      ),
+    );
+  }
 
-      if (_quantity > _selectedMedicine!.quantity) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Insufficient stock. Available: ${_selectedMedicine!.quantity}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
+  void _updateQuantity(int index, int newQuantity) {
+    if (index >= _cartItems.length) return;
+    
+    setState(() {
+      if (newQuantity <= 0) {
+        _cartItems.removeAt(index);
+      } else {
+        final maxStock = _cartItems[index].medicine.quantity;
+        if (newQuantity <= maxStock) {
+          _cartItems[index].quantity = newQuantity;
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Only $maxStock units available'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
       }
+    });
+  }
 
-      setState(() {
-        _isLoading = true;
-        _expiryError = null;
-      });
+  void _removeFromCart(int index) {
+    if (index >= _cartItems.length) return;
+    
+    setState(() {
+      _cartItems.removeAt(index);
+    });
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Removed from cart'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+  }
 
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      final saleData = {
-        'medicine': _selectedMedicine!.id,
-        'user': authProvider.currentUser!.id,
-        'quantity': _quantity,
-        'notes': _notesController.text.trim(),
-      };
+  void _showMedicineSelector() {
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext dialogContext) {
+        String searchQuery = '';
+        
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Container(
+                height: MediaQuery.of(context).size.height * 0.7,
+                width: double.maxFinite,
+                child: Column(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryGreen,
+                        borderRadius: const BorderRadius.only(
+                          topLeft: Radius.circular(20),
+                          topRight: Radius.circular(20),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.medical_services, color: Colors.white),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Add Medicine',
+                              style: GoogleFonts.poppins(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close, color: Colors.white),
+                            onPressed: () => Navigator.pop(dialogContext),
+                          ),
+                        ],
+                      ),
+                    ),
+                    
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: TextField(
+                        autofocus: true,
+                        decoration: InputDecoration(
+                          hintText: 'Search medicine...',
+                          prefixIcon: const Icon(Icons.search),
+                          suffixIcon: searchQuery.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear),
+                                  onPressed: () {
+                                    setStateDialog(() {
+                                      searchQuery = '';
+                                    });
+                                  },
+                                )
+                              : null,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onChanged: (value) {
+                          setStateDialog(() {
+                            searchQuery = value;
+                          });
+                        },
+                      ),
+                    ),
+                    
+                    Expanded(
+                      child: Consumer<MedicineProvider>(
+                        builder: (context, provider, child) {
+                          if (provider.isLoading && provider.medicines.isEmpty) {
+                            return const Center(child: CircularProgressIndicator());
+                          }
+                          
+                          final today = DateTime.now();
+                          final todayMidnight = DateTime(today.year, today.month, today.day);
+                          
+                          var availableMedicines = provider.medicines
+                              .where((m) => m.expiryDate.isAfter(todayMidnight) && m.quantity > 0)
+                              .toList();
+                          
+                          if (searchQuery.isNotEmpty) {
+                            availableMedicines = availableMedicines.where((m) =>
+                              m.name.toLowerCase().contains(searchQuery.toLowerCase()) ||
+                              m.genericName.toLowerCase().contains(searchQuery.toLowerCase())
+                            ).toList();
+                          }
 
-      final provider = Provider.of<SaleProvider>(context, listen: false);
-      final success = await provider.createSale(saleData);
+                          if (availableMedicines.isEmpty) {
+                            return Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.medical_services_outlined, size: 64, color: Colors.grey.shade400),
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    searchQuery.isEmpty ? 'No available medicines' : 'No matching medicines',
+                                    style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey.shade600),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }
 
-      setState(() {
-        _isLoading = false;
-      });
+                          return ListView.builder(
+                            padding: const EdgeInsets.all(8),
+                            itemCount: availableMedicines.length,
+                            itemBuilder: (context, index) {
+                              final medicine = availableMedicines[index];
+                              final isLowStock = medicine.quantity <= medicine.minStockLevel;
+                              final alreadyInCart = _cartItems.any((item) => item.medicine.id == medicine.id);
+                              
+                              return Card(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                child: ListTile(
+                                  leading: CircleAvatar(
+                                    backgroundColor: isLowStock ? Colors.orange : Colors.green,
+                                    child: Text(
+                                      medicine.quantity.toString(),
+                                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                                    ),
+                                  ),
+                                  title: Text(
+                                    medicine.name,
+                                    style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+                                  ),
+                                  subtitle: Text(
+                                    'Stock: ${medicine.quantity} | UGX ${medicine.retailPrice.toStringAsFixed(0)}',
+                                    style: GoogleFonts.poppins(fontSize: 12),
+                                  ),
+                                  trailing: alreadyInCart
+                                      ? const Icon(Icons.check_circle, color: Colors.green)
+                                      : null,
+                                  onTap: () {
+                                    Navigator.pop(dialogContext);
+                                    _showQuantityDialog(medicine);
+                                  },
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
-      if (success && mounted) {
+  void _showQuantityDialog(Medicine medicine) {
+    int quantity = 1;
+    
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: Text('Add ${medicine.name}'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Price: UGX ${medicine.retailPrice.toStringAsFixed(0)}'),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.remove_circle_outline),
+                        onPressed: () {
+                          if (quantity > 1) {
+                            setStateDialog(() {
+                              quantity--;
+                            });
+                          }
+                        },
+                      ),
+                      Container(
+                        width: 60,
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Text(
+                          quantity.toString(),
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.poppins(fontSize: 20, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.add_circle_outline),
+                        onPressed: () {
+                          if (quantity < medicine.quantity) {
+                            setStateDialog(() {
+                              quantity++;
+                            });
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Only ${medicine.quantity} units available'),
+                                duration: const Duration(milliseconds: 800),
+                              ),
+                            );
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                  Text(
+                    'Available: ${medicine.quantity} units',
+                    style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _addToCart(medicine, quantity);
+                  },
+                  child: Text('Add (UGX ${(medicine.retailPrice * quantity).toStringAsFixed(0)})'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<void> _processSale() async {
+    if (_cartItems.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please add at least one medicine to cart'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    
+    final saleData = {
+      'items': _cartItems.map((item) => {
+        'medicine_id': item.medicine.id,
+        'quantity': item.quantity,
+      }).toList(),
+      'user': authProvider.currentUser!.id,
+      'customer_name': _customerNameController.text.trim(),
+      'notes': _notesController.text.trim(),
+      'payment_method': _selectedPaymentMethod,
+    };
+
+    final provider = Provider.of<SaleProvider>(context, listen: false);
+    final success = await provider.createSale(saleData);
+
+    setState(() {
+      _isLoading = false;
+    });
+
+    if (success && mounted) {
+      await provider.loadSales(refresh: true);
+      
+      // Fixed: Handle nullable SaleGroup properly
+      SaleGroup? saleGroup;
+      try {
+        saleGroup = provider.saleGroups.firstWhere(
+          (group) => group.saleDate.isAfter(DateTime.now().subtract(const Duration(minutes: 1))),
+        );
+      } catch (e) {
+        if (provider.saleGroups.isNotEmpty) {
+          saleGroup = provider.saleGroups.first;
+        }
+      }
+      
+      if (saleGroup != null && saleGroup.saleId.isNotEmpty) {
+        try {
+          await PdfService.generateSaleReceipt(saleGroup);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('✅ Sale completed! Receipt generated.'),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 2),
+              ),
+            );
+            Navigator.pop(context, true);
+          }
+        } catch (e) {
+          print('PDF Generation Error: $e');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('✅ Sale completed but PDF generation failed: $e'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+            Navigator.pop(context, true);
+          }
+        }
+      } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('✅ Sale completed successfully'),
@@ -139,14 +444,14 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
           ),
         );
         Navigator.pop(context, true);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(provider.error ?? 'Failed to process sale'),
-            backgroundColor: Colors.red,
-          ),
-        );
       }
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(provider.error ?? 'Failed to process sale'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
@@ -155,317 +460,176 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('New Sale'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
-      body: Consumer2<MedicineProvider, SaleProvider>(
-        builder: (context, medicineProvider, saleProvider, child) {
-          if (medicineProvider.isLoading && medicineProvider.medicines.isEmpty) {
-            return const LoadingIndicator();
-          }
-
-          // CRITICAL: Filter out expired medicines from the dropdown
-          final today = DateTime.now();
-          final todayMidnight = DateTime(today.year, today.month, today.day);
-          
-          final availableMedicines = medicineProvider.medicines
-              .where((m) => !m.expiryDate.isBefore(todayMidnight))
-              .toList();
-
-          // Show warning if there are expired medicines in stock
-          final expiredCount = medicineProvider.medicines.length - availableMedicines.length;
-
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
-            child: Form(
-              key: _formKey,
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Expired Medicines Warning
-                  if (expiredCount > 0) ...[
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.red.shade50,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.red.shade200),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.warning, color: Colors.red.shade700),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              '$expiredCount expired medicine${expiredCount > 1 ? 's' : ''} in stock (hidden from selection)',
-                              style: GoogleFonts.poppins(
-                                color: Colors.red.shade700,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ),
-                        ],
+                  ElevatedButton.icon(
+                    onPressed: _showMedicineSelector,
+                    icon: const Icon(Icons.add_shopping_cart),
+                    label: const Text('Add Medicine to Cart'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryGreen,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    const SizedBox(height: 16),
-                  ],
-
-                  // Medicine Selection
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Select Medicine',
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primaryGreen,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          
-                          // Medicine Dropdown
-                          DropdownButtonFormField<Medicine>(
-                            value: _selectedMedicine,
-                            decoration: InputDecoration(
-                              labelText: 'Medicine *',
-                              prefixIcon: const Icon(Icons.medical_services),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              errorText: _expiryError,
-                              errorStyle: GoogleFonts.poppins(color: Colors.red),
-                            ),
-                            items: availableMedicines.map((medicine) {
-                              return DropdownMenuItem<Medicine>(
-                                value: medicine,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                  ),
+                  
+                  const SizedBox(height: 16),
+                  
+                  if (_cartItems.isNotEmpty) ...[
+                    Text(
+                      'Cart Items (${_cartItems.length})',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: _cartItems.length,
+                      itemBuilder: (context, index) {
+                        final item = _cartItems[index];
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(
+                              children: [
+                                Row(
                                   children: [
-                                    Text(medicine.name),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            item.medicine.name,
+                                            style: GoogleFonts.poppins(
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          Text(
+                                            'UGX ${item.price.toStringAsFixed(0)} each',
+                                            style: GoogleFonts.poppins(
+                                              fontSize: 12,
+                                              color: Colors.grey.shade600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                      onPressed: () => _removeFromCart(index),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(Icons.remove_circle_outline, size: 20),
+                                          onPressed: () => _updateQuantity(index, item.quantity - 1),
+                                        ),
+                                        SizedBox(
+                                          width: 40,
+                                          child: Text(
+                                            item.quantity.toString(),
+                                            textAlign: TextAlign.center,
+                                            style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.add_circle_outline, size: 20),
+                                          onPressed: () => _updateQuantity(index, item.quantity + 1),
+                                        ),
+                                      ],
+                                    ),
                                     Text(
-                                      'Stock: ${medicine.quantity} | Price: UGX ${medicine.price.toStringAsFixed(0)} | Expires: ${medicine.expiryDate.day}/${medicine.expiryDate.month}/${medicine.expiryDate.year}',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey.shade600,
+                                      'UGX ${item.subtotal.toStringAsFixed(0)}',
+                                      style: GoogleFonts.poppins(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                        color: AppColors.primaryGreen,
                                       ),
                                     ),
                                   ],
                                 ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Customer Details',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.primaryGreen,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          TextFormField(
+                            controller: _customerNameController,
+                            decoration: InputDecoration(
+                              labelText: 'Customer Name (Optional)',
+                              prefixIcon: const Icon(Icons.person),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          
+                          DropdownButtonFormField<String>(
+                            value: _selectedPaymentMethod,
+                            decoration: InputDecoration(
+                              labelText: 'Payment Method',
+                              prefixIcon: const Icon(Icons.payment),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                            items: _paymentMethods.map((method) {
+                              return DropdownMenuItem(
+                                value: method,
+                                child: Text(method),
                               );
                             }).toList(),
                             onChanged: (value) {
                               setState(() {
-                                _selectedMedicine = value;
-                                _expiryError = null;
-                                _updateTotalPrice();
+                                _selectedPaymentMethod = value!;
                               });
                             },
-                            validator: (value) {
-                              if (value == null) return 'Please select a medicine';
-                              return null;
-                            },
                           ),
-                          
-                          if (availableMedicines.isEmpty) ...[
-                            const SizedBox(height: 16),
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.orange.shade50,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.orange.shade200),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(Icons.warning, color: Colors.orange.shade700),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      'No available medicines in stock. All medicines may be expired.',
-                                      style: GoogleFonts.poppins(
-                                        color: Colors.orange.shade700,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                          
-                          if (_selectedMedicine != null) ...[
-                            const SizedBox(height: 16),
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade100,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'Available Stock:',
-                                    style: GoogleFonts.poppins(
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  Text(
-                                    '${_selectedMedicine!.quantity} units',
-                                    style: GoogleFonts.poppins(
-                                      fontWeight: FontWeight.w600,
-                                      color: _selectedMedicine!.quantity > 10
-                                          ? Colors.green
-                                          : Colors.orange,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // Quantity and Price
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Sale Details',
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primaryGreen,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          
-                          Row(
-                            children: [
-                              Expanded(
-                                child: TextFormField(
-                                  controller: _quantityController,
-                                  decoration: InputDecoration(
-                                    labelText: 'Quantity *',
-                                    prefixIcon: const Icon(Icons.format_list_numbered),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
-                                  ),
-                                  keyboardType: TextInputType.number,
-                                  onChanged: (value) {
-                                    setState(() {
-                                      _quantity = int.tryParse(value) ?? 1;
-                                      _updateTotalPrice();
-                                    });
-                                  },
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
-                                      return 'Please enter quantity';
-                                    }
-                                    final quantity = int.tryParse(value);
-                                    if (quantity == null || quantity <= 0) {
-                                      return 'Please enter a valid quantity';
-                                    }
-                                    if (_selectedMedicine != null && quantity > _selectedMedicine!.quantity) {
-                                      return 'Insufficient stock';
-                                    }
-                                    return null;
-                                  },
-                                ),
-                              ),
-                            ],
-                          ),
-                          
-                          if (_selectedMedicine != null) ...[
-                            const SizedBox(height: 16),
-                            Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: AppColors.primaryGreen.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: AppColors.primaryGreen.withOpacity(0.3),
-                                ),
-                              ),
-                              child: Column(
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        'Unit Price:',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                      Text(
-                                        'UGX ${_selectedMedicine!.price.toStringAsFixed(0)}',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  const Divider(),
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        'Total Price:',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      Text(
-                                        'UGX ${_totalPrice.toStringAsFixed(0)}',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 24,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppColors.primaryGreen,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // Notes
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Additional Information',
-                            style: GoogleFonts.poppins(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primaryGreen,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
+                          const SizedBox(height: 12),
                           
                           TextFormField(
                             controller: _notesController,
@@ -476,29 +640,62 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
                                 borderRadius: BorderRadius.circular(10),
                               ),
                             ),
-                            maxLines: 3,
+                            maxLines: 2,
                           ),
                         ],
                       ),
                     ),
                   ),
-                  
-                  const SizedBox(height: 24),
-                  
-                  // Submit Button
-                  CustomButton(
-                    text: 'COMPLETE SALE',
-                    onPressed: _handleSubmit,
-                    isLoading: _isLoading,
-                    isFullWidth: true,
-                  ),
-                  
-                  const SizedBox(height: 16),
                 ],
               ),
             ),
-          );
-        },
+          ),
+          
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.shade300,
+                  blurRadius: 8,
+                  offset: const Offset(0, -2),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'TOTAL:',
+                      style: GoogleFonts.poppins(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      'UGX ${_total.toStringAsFixed(0)}',
+                      style: GoogleFonts.poppins(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primaryGreen,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                CustomButton(
+                  text: 'COMPLETE SALE${_cartItems.isNotEmpty ? ' (${_cartItems.length} items)' : ''}',
+                  onPressed: _processSale,
+                  isLoading: _isLoading,
+                  isFullWidth: true,
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

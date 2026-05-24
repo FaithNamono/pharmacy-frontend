@@ -1,13 +1,19 @@
+import 'dart:convert';
+
 class User {
   final int id;
   final String username;
   final String email;
   final String firstName;
   final String lastName;
-  final String role;
-  final String phone;
-  final String address;
+  final String? phone;
+  final String? role;
+  final bool isEmailVerified;
+
+  // ✅ ADDED FIELDS (your app is already using these)
+  final bool isAdmin;
   final bool isActive;
+  final String? address;
 
   User({
     required this.id,
@@ -15,23 +21,29 @@ class User {
     required this.email,
     required this.firstName,
     required this.lastName,
-    required this.role,
-    required this.phone,
-    required this.address,
-    required this.isActive,
+    this.phone,
+    this.role,
+    this.isEmailVerified = false,
+    this.isAdmin = false,
+    this.isActive = true,
+    this.address,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
     return User(
-      id: json['id'],
+      id: json['id'] ?? 0,
       username: json['username'] ?? '',
       email: json['email'] ?? '',
       firstName: json['first_name'] ?? '',
       lastName: json['last_name'] ?? '',
-      role: json['role'] ?? 'staff',
-      phone: json['phone'] ?? '',
-      address: json['address'] ?? '',
+      phone: json['phone'],
+      role: json['role'],
+      isEmailVerified: json['is_email_verified'] ?? false,
+
+      // backend-safe parsing
+      isAdmin: json['is_admin'] ?? json['role'] == 'admin',
       isActive: json['is_active'] ?? true,
+      address: json['address'],
     );
   }
 
@@ -42,22 +54,27 @@ class User {
       'email': email,
       'first_name': firstName,
       'last_name': lastName,
-      'role': role,
       'phone': phone,
-      'address': address,
+      'role': role,
+      'is_email_verified': isEmailVerified,
+      'is_admin': isAdmin,
       'is_active': isActive,
+      'address': address,
     };
   }
 
+  // ✅ FIXED SERIALIZATION
+  String toJsonString() => jsonEncode(toJson());
+
+  factory User.fromJsonString(String str) =>
+      User.fromJson(jsonDecode(str));
+
+  // ✅ USED IN UI
   String get fullName => '$firstName $lastName'.trim();
 
-  bool get isAdmin => role == 'admin';
   String get initials {
-    if (firstName.isNotEmpty) {
-      return firstName[0].toUpperCase();
-    } else if (username.isNotEmpty) {
-      return username[0].toUpperCase();
-    }
-    return 'U';
+    final f = firstName.isNotEmpty ? firstName[0] : '';
+    final l = lastName.isNotEmpty ? lastName[0] : '';
+    return (f + l).toUpperCase();
   }
 }

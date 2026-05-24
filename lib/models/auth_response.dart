@@ -1,35 +1,44 @@
+// lib/models/auth_response.dart
 import 'user.dart';
 
 class AuthResponse {
-  final String? token;
-  final User? user;
-  final String? message;
+  final bool isSuccess;
   final String? error;
-  final String? otp;
-  final String? uid;
-  final String? resetToken;
+  final User? user;
+  final bool? requiresVerification;
+  final String? email;
+  final String? phone;
+  final String? token; 
 
   AuthResponse({
-    this.token,
-    this.user,
-    this.message,
+    this.isSuccess = false,
     this.error,
-    this.otp,
-    this.uid,
-    this.resetToken,
+    this.user,
+    this.requiresVerification,
+    this.email,
+    this.phone,
+    this.token,
   });
 
   factory AuthResponse.fromJson(Map<String, dynamic> json) {
     return AuthResponse(
-      token: json['token'],
-      user: json['user'] != null ? User.fromJson(json['user']) : null,
-      message: json['message'],
+      isSuccess: json['success'] ?? false,
       error: json['error'],
-      otp: json['otp']?.toString(),
-      uid: json['uid'],
-      resetToken: json['token'],
+      user: json['user'] != null ? User.fromJson(json['user']) : null,
+      requiresVerification: json['requires_verification'],
+      email: json['email'],
+      phone: json['phone'],
     );
   }
 
-  bool get isSuccess => token != null || message != null;
+  Map<String, dynamic> toJson() {
+    return {
+      'success': isSuccess,
+      'error': error,
+      'user': user?.toJson(),
+      'requires_verification': requiresVerification,
+      'email': email,
+      'phone': phone,
+    };
+  }
 }

@@ -12,10 +12,10 @@ class StaffFormScreen extends StatefulWidget {
   final bool isEditing;
 
   const StaffFormScreen({
-    Key? key,
+    super.key,
     this.staff,
     this.isEditing = false,
-  }) : super(key: key);
+  });
 
   @override
   _StaffFormScreenState createState() => _StaffFormScreenState();
@@ -266,7 +266,7 @@ class _StaffFormScreenState extends State<StaffFormScreen> {
 
                       // Role Selection
                       DropdownButtonFormField<String>(
-                        value: _selectedRole,
+                        initialValue: _selectedRole,
                         decoration: const InputDecoration(
                           labelText: 'Role *',
                           prefixIcon: Icon(Icons.admin_panel_settings),
@@ -295,7 +295,7 @@ class _StaffFormScreenState extends State<StaffFormScreen> {
                           style: GoogleFonts.poppins(fontSize: 12),
                         ),
                         value: _isActive,
-                        activeColor: AppColors.primaryGreen,
+                        activeThumbColor: AppColors.primaryGreen,
                         onChanged: (value) {
                           setState(() {
                             _isActive = value;

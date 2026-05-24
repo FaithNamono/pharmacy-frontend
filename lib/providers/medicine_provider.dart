@@ -1,296 +1,371 @@
+// lib/providers/medicine_provider.dart
+
 import 'package:flutter/material.dart';
+
 import '../models/medicine.dart';
 import '../models/category.dart';
 import '../models/supplier.dart';
+
 import '../services/api_service.dart';
 
 class MedicineProvider extends ChangeNotifier {
   final ApiService _apiService;
-  
-  List<Medicine> _medicines = [];
+
+  final List<Medicine> _medicines = [];
   List<Medicine> _lowStockMedicines = [];
   List<Medicine> _expiringMedicines = [];
   List<Medicine> _expiredMedicines = [];
+
   List<Category> _categories = [];
   List<Supplier> _suppliers = [];
-  
+
   bool _isLoading = false;
   String? _error;
+
   int _currentPage = 1;
   bool _hasMorePages = true;
 
   MedicineProvider(this._apiService);
 
-  // Getters
+  // GETTERS
+
   List<Medicine> get medicines => _medicines;
+
   List<Medicine> get lowStockMedicines => _lowStockMedicines;
+
   List<Medicine> get expiringMedicines => _expiringMedicines;
+
   List<Medicine> get expiredMedicines => _expiredMedicines;
+
   List<Category> get categories => _categories;
+
   List<Supplier> get suppliers => _suppliers;
+
   bool get isLoading => _isLoading;
+
   String? get error => _error;
 
-  // Load all medicines with pagination handling
-  Future<void> loadMedicines({bool refresh = false}) async {
+  // LOAD MEDICINES
+
+  Future<void> loadMedicines({
+    bool refresh = false,
+  }) async {
     if (refresh) {
-      _medicines = [];
+      _medicines.clear();
       _currentPage = 1;
       _hasMorePages = true;
     }
 
-    if (!_hasMorePages || _isLoading) return;
-
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
+    if (_isLoading || !_hasMorePages) return;
 
     try {
-      final response = await _apiService.getMedicines(params: {
-        'page': _currentPage,
-      });
+      _isLoading = true;
+      notifyListeners();
 
-      // Handle both paginated and non-paginated responses
-      List<dynamic> data;
-      if (response.data is Map && response.data['results'] != null) {
-        // Paginated response
-        data = response.data['results'];
-        _hasMorePages = response.data['next'] != null;
-      } else if (response.data is List) {
-        // Non-paginated response (plain array)
-        data = response.data;
-        _hasMorePages = false; // No pagination
-      } else {
-        data = [];
-      }
+      final response = await _apiService.getMedicines(
+        params: {
+          'page': _currentPage,
+        },
+      );
 
-      final newMedicines = data.map((json) => Medicine.fromJson(json)).toList();
+      if (response['success'] == true) {
+        final data = response['data'];
 
-      if (newMedicines.isEmpty) {
-        _hasMorePages = false;
-      } else {
+        List<dynamic> medicinesData = [];
+
+        // PAGINATED RESPONSE
+        if (data is Map && data['results'] != null) {
+          medicinesData = data['results'] is List ? data['results'] : [];
+          _hasMorePages = data['next'] != null;
+        }
+        // NORMAL ARRAY RESPONSE
+        else if (data is List) {
+          medicinesData = data;
+          _hasMorePages = false;
+        }
+
+        final newMedicines = medicinesData
+            .map(
+              (json) => Medicine.fromJson(json),
+            )
+            .toList();
+
         _medicines.addAll(newMedicines);
-        _currentPage++;
-      }
 
-      _error = null;
+        if (newMedicines.isNotEmpty) {
+          _currentPage++;
+        }
+
+        _error = null;
+      } else {
+        _error = response['error'];
+      }
     } catch (e) {
       _error = 'Failed to load medicines: $e';
-      print('Error loading medicines: $e');
+      print('Medicine Error: $e');
     }
 
     _isLoading = false;
     notifyListeners();
   }
 
-  // Load low stock medicines
+  // LOW STOCK
+
   Future<void> loadLowStockMedicines() async {
     try {
       final response = await _apiService.getLowStockMedicines();
-      
-      List<dynamic> data;
-      if (response.data is Map && response.data['medicines'] != null) {
-        data = response.data['medicines'];
-      } else if (response.data is List) {
-        data = response.data;
-      } else {
-        data = [];
+
+      if (response['success'] == true) {
+        final data = response['data'];
+
+        List<dynamic> medicinesData = [];
+
+        if (data is List) {
+          medicinesData = data;
+        } else if (data is Map && data['medicines'] != null) {
+          medicinesData = data['medicines'] is List ? data['medicines'] : [];
+        }
+
+        _lowStockMedicines = medicinesData
+            .map(
+              (json) => Medicine.fromJson(json),
+            )
+            .toList();
+
+        notifyListeners();
       }
-      
-      _lowStockMedicines = data.map((json) => Medicine.fromJson(json)).toList();
-      notifyListeners();
     } catch (e) {
-      print('Error loading low stock: $e');
+      print('Low Stock Error: $e');
     }
   }
 
-  // Load expiring medicines
+  // EXPIRING
+
   Future<void> loadExpiringMedicines() async {
     try {
       final response = await _apiService.getExpiringMedicines();
-      
-      List<dynamic> data;
-      if (response.data is List) {
-        data = response.data;
-      } else {
-        data = [];
+
+      if (response['success'] == true) {
+        final data = response['data'];
+
+        List<dynamic> medicinesData = [];
+
+        if (data is List) {
+          medicinesData = data;
+        } else if (data is Map && data['medicines'] != null) {
+          medicinesData = data['medicines'] is List ? data['medicines'] : [];
+        }
+
+        _expiringMedicines = medicinesData
+            .map(
+              (json) => Medicine.fromJson(json),
+            )
+            .toList();
+
+        notifyListeners();
       }
-      
-      _expiringMedicines = data.map((json) => Medicine.fromJson(json)).toList();
-      notifyListeners();
     } catch (e) {
-      print('Error loading expiring: $e');
+      print('Expiring Error: $e');
     }
   }
 
-  // Load expired medicines
+  // EXPIRED
+
   Future<void> loadExpiredMedicines() async {
     try {
       final response = await _apiService.getExpiredMedicines();
-      
-      List<dynamic> data;
-      if (response.data is List) {
-        data = response.data;
-      } else {
-        data = [];
+
+      if (response['success'] == true) {
+        final data = response['data'];
+
+        List<dynamic> medicinesData = [];
+
+        if (data is List) {
+          medicinesData = data;
+        } else if (data is Map && data['medicines'] != null) {
+          medicinesData = data['medicines'] is List ? data['medicines'] : [];
+        }
+
+        _expiredMedicines = medicinesData
+            .map(
+              (json) => Medicine.fromJson(json),
+            )
+            .toList();
+
+        notifyListeners();
       }
-      
-      _expiredMedicines = data.map((json) => Medicine.fromJson(json)).toList();
-      notifyListeners();
     } catch (e) {
-      print('Error loading expired: $e');
+      print('Expired Error: $e');
     }
   }
 
-  // Load categories
+  // CATEGORIES
+
   Future<void> loadCategories() async {
     try {
       final response = await _apiService.getCategories();
-      
-      List<dynamic> data;
-      if (response.data is List) {
-        data = response.data;
-      } else {
-        data = [];
+
+      if (response['success'] == true) {
+        final List<dynamic> data = response['data'] is List ? response['data'] : [];
+
+        _categories = data
+            .map(
+              (json) => Category.fromJson(json),
+            )
+            .toList();
+
+        notifyListeners();
       }
-      
-      _categories = data.map((json) => Category.fromJson(json)).toList();
-      notifyListeners();
     } catch (e) {
-      print('Error loading categories: $e');
+      print('Category Error: $e');
     }
   }
 
-  // Load suppliers
+  // SUPPLIERS
+
   Future<void> loadSuppliers() async {
     try {
       final response = await _apiService.getSuppliers();
-      
-      List<dynamic> data;
-      if (response.data is List) {
-        data = response.data;
-      } else {
-        data = [];
+
+      if (response['success'] == true) {
+        final List<dynamic> data = response['data'] is List ? response['data'] : [];
+
+        _suppliers = data
+            .map(
+              (json) => Supplier.fromJson(json),
+            )
+            .toList();
+
+        notifyListeners();
       }
-      
-      _suppliers = data.map((json) => Supplier.fromJson(json)).toList();
-      notifyListeners();
     } catch (e) {
-      print('Error loading suppliers: $e');
+      print('Supplier Error: $e');
     }
   }
 
-  // Get medicine by ID
+  // GET SINGLE MEDICINE
+
   Future<Medicine?> getMedicineById(int id) async {
     try {
       final response = await _apiService.getMedicine(id);
-      return Medicine.fromJson(response.data);
+
+      if (response['success'] == true) {
+        return Medicine.fromJson(response['data']);
+      }
+
+      return null;
     } catch (e) {
-      print('Error getting medicine: $e');
+      print('Get Medicine Error: $e');
       return null;
     }
   }
 
-  // Add medicine
-  Future<bool> addMedicine(Map<String, dynamic> medicineData) async {
-    _isLoading = true;
-    _error = null;
-    notifyListeners();
+  // CREATE
 
+  Future<bool> addMedicine(Map<String, dynamic> medicineData) async {
     try {
-      final response = await _apiService.createMedicine(medicineData);
-      final newMedicine = Medicine.fromJson(response.data);
-      _medicines.insert(0, newMedicine);
-      _error = null;
-      _isLoading = false;
+      _isLoading = true;
       notifyListeners();
-      return true;
+
+      final response = await _apiService.createMedicine(medicineData);
+
+      if (response['success'] == true) {
+        final medicine = Medicine.fromJson(response['data']);
+
+        _medicines.insert(0, medicine);
+
+        _error = null;
+
+        _isLoading = false;
+        notifyListeners();
+
+        return true;
+      }
+
+      _error = response['error'];
     } catch (e) {
       _error = 'Failed to add medicine: $e';
-      print('Error adding medicine: $e');
-      _isLoading = false;
-      notifyListeners();
-      return false;
     }
-  }
 
-  // Update medicine
-  Future<bool> updateMedicine(int id, Map<String, dynamic> medicineData) async {
-    _isLoading = true;
-    _error = null;
+    _isLoading = false;
     notifyListeners();
 
+    return false;
+  }
+
+  // UPDATE
+
+  Future<bool> updateMedicine(int id, Map<String, dynamic> medicineData) async {
     try {
-      final response = await _apiService.updateMedicine(id, medicineData);
-      final updatedMedicine = Medicine.fromJson(response.data);
-      
-      final index = _medicines.indexWhere((m) => m.id == id);
-      if (index != -1) {
-        _medicines[index] = updatedMedicine;
-      }
-
-      // Also update in other lists if present
-      final lowStockIndex = _lowStockMedicines.indexWhere((m) => m.id == id);
-      if (lowStockIndex != -1) {
-        _lowStockMedicines[lowStockIndex] = updatedMedicine;
-      }
-
-      final expiringIndex = _expiringMedicines.indexWhere((m) => m.id == id);
-      if (expiringIndex != -1) {
-        _expiringMedicines[expiringIndex] = updatedMedicine;
-      }
-
-      final expiredIndex = _expiredMedicines.indexWhere((m) => m.id == id);
-      if (expiredIndex != -1) {
-        _expiredMedicines[expiredIndex] = updatedMedicine;
-      }
-
-      _error = null;
-      _isLoading = false;
+      _isLoading = true;
       notifyListeners();
-      return true;
+
+      final response = await _apiService.updateMedicine(id, medicineData);
+
+      if (response['success'] == true) {
+        final updatedMedicine = Medicine.fromJson(response['data']);
+
+        final index = _medicines.indexWhere((m) => m.id == id);
+
+        if (index != -1) {
+          _medicines[index] = updatedMedicine;
+        }
+
+        _error = null;
+
+        _isLoading = false;
+        notifyListeners();
+
+        return true;
+      }
+
+      _error = response['error'];
     } catch (e) {
       _error = 'Failed to update medicine: $e';
-      print('Error updating medicine: $e');
-      _isLoading = false;
-      notifyListeners();
-      return false;
     }
-  }
 
-  // Delete medicine
-  Future<bool> deleteMedicine(int id) async {
-    _isLoading = true;
-    _error = null;
+    _isLoading = false;
     notifyListeners();
 
+    return false;
+  }
+
+  // DELETE
+
+  Future<bool> deleteMedicine(int id) async {
     try {
-      await _apiService.deleteMedicine(id);
-      _medicines.removeWhere((m) => m.id == id);
-      _lowStockMedicines.removeWhere((m) => m.id == id);
-      _expiringMedicines.removeWhere((m) => m.id == id);
-      _expiredMedicines.removeWhere((m) => m.id == id);
-      
-      _error = null;
-      _isLoading = false;
+      _isLoading = true;
       notifyListeners();
-      return true;
+
+      final response = await _apiService.deleteMedicine(id);
+
+      if (response['success'] == true) {
+        _medicines.removeWhere((m) => m.id == id);
+        _lowStockMedicines.removeWhere((m) => m.id == id);
+        _expiredMedicines.removeWhere((m) => m.id == id);
+        _expiringMedicines.removeWhere((m) => m.id == id);
+
+        _error = null;
+
+        _isLoading = false;
+        notifyListeners();
+
+        return true;
+      }
+
+      _error = response['error'];
     } catch (e) {
       _error = 'Failed to delete medicine: $e';
-      print('Error deleting medicine: $e');
-      _isLoading = false;
-      notifyListeners();
-      return false;
     }
-  }
 
-  // Clear error
-  void clearError() {
-    _error = null;
+    _isLoading = false;
     notifyListeners();
+
+    return false;
   }
 
-  // Refresh all data
+  // REFRESH ALL
+
   Future<void> refreshAll() async {
     await Future.wait([
       loadMedicines(refresh: true),
@@ -300,5 +375,10 @@ class MedicineProvider extends ChangeNotifier {
       loadCategories(),
       loadSuppliers(),
     ]);
+  }
+
+  void clearError() {
+    _error = null;
+    notifyListeners();
   }
 }

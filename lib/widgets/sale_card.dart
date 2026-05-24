@@ -8,10 +8,10 @@ class SaleCard extends StatelessWidget {
   final VoidCallback onTap;
 
   const SaleCard({
-    Key? key,
+    super.key,
     required this.sale,
     required this.onTap,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -33,7 +33,7 @@ class SaleCard extends StatelessWidget {
                   color: AppConstants.primaryColor.withOpacity(0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Icon(
+                child: const Icon(
                   Icons.receipt,
                   color: AppConstants.primaryColor,
                   size: 30,

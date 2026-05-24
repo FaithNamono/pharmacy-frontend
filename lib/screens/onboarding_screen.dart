@@ -5,7 +5,7 @@ import '../utils/constants.dart';
 import '../widgets/custom_button.dart';
 
 class OnboardingScreen extends StatefulWidget {
-  const OnboardingScreen({Key? key}) : super(key: key);
+  const OnboardingScreen({super.key});
 
   @override
   _OnboardingScreenState createState() => _OnboardingScreenState();
@@ -18,21 +18,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final List<OnboardingItem> _onboardingData = [
     OnboardingItem(
       title: 'Manage Medicines',
-      description: 'Easily track inventory, expiry dates, and stock levels',
+      description: 'Easily track inventory, expiry dates and stock levels',
       image: Icons.inventory,
-      color: Color(0xFF1565C0),
+      color: const Color(0xFF1565C0),
     ),
     OnboardingItem(
       title: 'Record Sales',
       description: 'Quick and easy sales recording with automatic stock updates',
       image: Icons.shopping_cart,
-      color: Color(0xFFFF8F00),
+      color: const Color(0xFFFF8F00),
     ),
     OnboardingItem(
       title: 'Generate Reports',
       description: 'Get insights with detailed reports and analytics',
       image: Icons.assessment,
-      color: Color(0xFF7B1FA2),
+      color: const Color(0xFF7B1FA2),
     ),
   ];
 
@@ -68,9 +68,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 ),
               ),
               _buildPageIndicator(),
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
               _buildButtons(),
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
             ],
           ),
         ),
@@ -80,7 +80,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Widget _buildOnboardingPage(OnboardingItem item) {
     return Padding(
-      padding: EdgeInsets.all(AppConstants.paddingLarge),
+      padding: const EdgeInsets.all(AppConstants.paddingLarge),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -97,7 +97,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               color: item.color,
             ),
           ),
-          SizedBox(height: 40),
+          const SizedBox(height: 40),
           Text(
             item.title,
             style: GoogleFonts.poppins(
@@ -107,7 +107,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
             textAlign: TextAlign.center,
           ),
-          SizedBox(height: 20),
+          const SizedBox(height: 20),
           Text(
             item.description,
             style: GoogleFonts.poppins(
@@ -128,7 +128,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       children: List.generate(
         _onboardingData.length,
         (index) => Container(
-          margin: EdgeInsets.symmetric(horizontal: 4),
+          margin: const EdgeInsets.symmetric(horizontal: 4),
           height: 8,
           width: _currentPage == index ? 24 : 8,
           decoration: BoxDecoration(
@@ -144,7 +144,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Widget _buildButtons() {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: AppConstants.paddingLarge),
+      padding: const EdgeInsets.symmetric(horizontal: AppConstants.paddingLarge),
       child: Column(
         children: [
           CustomButton(
@@ -159,14 +159,14 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 Navigator.pushReplacementNamed(context, '/login');
               } else {
                 _pageController.nextPage(
-                  duration: Duration(milliseconds: 300),
+                  duration: const Duration(milliseconds: 300),
                   curve: Curves.easeIn,
                 );
               }
             },
             isFullWidth: true,
           ),
-          SizedBox(height: 12),
+          const SizedBox(height: 12),
           if (_currentPage < _onboardingData.length - 1)
             TextButton(
               onPressed: () async {

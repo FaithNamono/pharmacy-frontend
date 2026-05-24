@@ -8,12 +8,12 @@ class CategoryChip extends StatelessWidget {
   final Color? color;
 
   const CategoryChip({
-    Key? key,
+    super.key,
     required this.label,
     required this.isSelected,
     required this.onTap,
     this.color,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

@@ -1,142 +1,315 @@
-import 'dart:convert';
+// lib/services/auth_service.dart
+
 import '../models/user.dart';
-import '../models/auth_response.dart';  // Make sure this file exists
+import '../models/auth_response.dart';
 import 'api_service.dart';
 import 'storage_service.dart';
 
 class AuthService {
   final ApiService _apiService;
   final StorageService _storageService;
-
+  
   AuthService(this._apiService, this._storageService);
 
-  Future<AuthResponse> login(String username, String password) async {
+  // LOGIN METHOD - handles nested response from ApiService
+  Future<AuthResponse> login(String email, String password) async {
     try {
-      final response = await _apiService.login(username, password);
+      print("🔐 LOGIN ATTEMPT: $email");
       
-      if (response.statusCode == 200) {
-        final data = response.data;
-        final token = data['token'];
-        final userData = data['user'];
+      final response = await _apiService.login(
+        username: email,
+        password: password,
+      );
+      
+      print("📦 LOGIN RESPONSE: $response");
+
+      // Check if the outer response was successful
+      if (response['success'] == true) {
+        // The actual data is inside response['data']
+        final data = response['data'];
         
-        await _storageService.saveToken(token);
-        await _storageService.saveUser(userData);
+        if (data is Map<String, dynamic>) {
+          // Check if login was successful in the nested response
+          if (data['success'] == true) {
+            // Extract token and user
+            final String? token = data['token'];
+            final Map<String, dynamic>? userData = data['user'];
+            
+            if (token != null && token.isNotEmpty) {
+              await _storageService.saveToken(token);
+            }
+            
+            if (userData != null) {
+              // Convert Map to User object before saving
+              final user = User.fromJson(userData);
+              await _storageService.saveUser(user);  // ✅ Pass User object, not Map
+              
+              return AuthResponse(
+                isSuccess: true,
+                user: user,
+                token: token,  // ✅ Now token parameter exists
+              );
+            }
+          }
+          
+          // Check for verification requirement
+          if (data['requires_verification'] == true) {
+            return AuthResponse(
+              isSuccess: false,
+              error: data['error'] ?? 'Verification required',
+              requiresVerification: true,
+              email: data['email'],
+            );
+          }
+          
+          // Handle error from nested response
+          return AuthResponse(
+            isSuccess: false,
+            error: data['error'] ?? 'Login failed',
+          );
+        }
         
         return AuthResponse(
-          token: token,
-          user: User.fromJson(userData),
+          isSuccess: false,
+          error: 'Invalid response format',
+        );
+      } else {
+        // Outer response failed (network error, etc.)
+        return AuthResponse(
+          isSuccess: false,
+          error: response['error'] ?? 'Login failed',
         );
       }
-      return AuthResponse(error: 'Invalid credentials');
     } catch (e) {
-      return AuthResponse(error: 'Connection error. Please try again.');
+      print("❌ LOGIN ERROR: $e");
+      return AuthResponse(
+        isSuccess: false,
+        error: 'Network error: ${e.toString()}',
+      );
     }
   }
 
-  Future<bool> logout() async {
-    try {
-      await _apiService.logout();
-      await _storageService.clearAll();
-      return true;
-    } catch (e) {
-      await _storageService.clearAll();
-      return false;
-    }
-  }
-
+  // REGISTER METHOD
   Future<AuthResponse> register(Map<String, dynamic> userData) async {
     try {
+      print("📝 REGISTER ATTEMPT: ${userData['email']}");
+      
       final response = await _apiService.register(userData);
       
-      if (response.statusCode == 201) {
-        final data = response.data;
-        return AuthResponse(
-          message: data['message'],
-          otp: data['otp']?.toString(),
-        );
-      } else if (response.statusCode == 400) {
-        final errors = response.data;
-        String errorMessage = '';
-        errors.forEach((key, value) {
-          errorMessage += '$key: ${value.join(', ')}\n';
-        });
-        return AuthResponse(error: errorMessage);
-      }
-      return AuthResponse(error: 'Registration failed');
-    } catch (e) {
-      return AuthResponse(error: 'Connection error. Please try again.');
-    }
-  }
-
-  Future<AuthResponse> verifyOtp(String email, String otp) async {
-    try {
-      final response = await _apiService.verifyOtp(email, otp);
+      print("📦 REGISTER RESPONSE: $response");
       
-      if (response.statusCode == 200) {
-        return AuthResponse(message: response.data['message']);
+      if (response['success'] == true) {
+        final data = response['data'];
+        
+        if (data is Map<String, dynamic>) {
+          if (data['success'] == true) {
+            User? user;
+            if (data['user'] != null) {
+              user = User.fromJson(data['user']);
+            }
+            
+            return AuthResponse(
+              isSuccess: true,
+              user: user,
+            );
+          } else {
+            return AuthResponse(
+              isSuccess: false,
+              error: data['error'] ?? 'Registration failed',
+            );
+          }
+        }
+        
+        return AuthResponse(
+          isSuccess: true,
+        );
+      } else {
+        return AuthResponse(
+          isSuccess: false,
+          error: response['error'] ?? 'Registration failed',
+        );
       }
-      return AuthResponse(error: 'Invalid OTP');
     } catch (e) {
-      return AuthResponse(error: 'Verification failed');
+      print("❌ REGISTER ERROR: $e");
+      return AuthResponse(
+        isSuccess: false,
+        error: 'Network error: ${e.toString()}',
+      );
     }
   }
 
+  // VERIFY OTP METHOD
+  Future<AuthResponse> verifyOtp({
+    String? email,
+    String? phone,
+    required String otp,
+    required String otpType,
+  }) async {
+    try {
+      final Map<String, dynamic> data = {
+        'otp': otp,
+        'otp_type': otpType,
+      };
+      
+      if (otpType == 'email' && email != null) {
+        data['email'] = email;
+      } else if (otpType == 'phone' && phone != null) {
+        data['phone'] = phone;
+      }
+      
+      print("🔐 VERIFY OTP DATA: $data");
+      
+      final response = await _apiService.post('/api/auth/verify-otp/', data);
+      
+      print("📦 VERIFY OTP RESPONSE: $response");
+      
+      if (response['success'] == true) {
+        final responseData = response['data'];
+        
+        if (responseData is Map<String, dynamic>) {
+          if (responseData['success'] == true) {
+            return AuthResponse(isSuccess: true);
+          } else {
+            return AuthResponse(
+              isSuccess: false,
+              error: responseData['error'] ?? 'Invalid OTP',
+            );
+          }
+        }
+        
+        return AuthResponse(isSuccess: true);
+      } else {
+        return AuthResponse(
+          isSuccess: false,
+          error: response['error'] ?? 'Invalid OTP',
+        );
+      }
+    } catch (e) {
+      print("❌ VERIFY OTP ERROR: $e");
+      return AuthResponse(
+        isSuccess: false,
+        error: 'Network error: ${e.toString()}',
+      );
+    }
+  }
+
+  // SEND OTP METHOD
+  Future<AuthResponse> sendOtp({
+    String? email,
+    String? phone,
+    required String otpType,
+  }) async {
+    try {
+      final Map<String, dynamic> body = {
+        'otp_type': otpType,
+      };
+      if (email != null) body['email'] = email;
+      if (phone != null) body['phone'] = phone;
+      
+      print("📧 SEND OTP DATA: $body");
+      
+      final response = await _apiService.post('/api/auth/send-otp/', body);
+      
+      if (response['success'] == true) {
+        final responseData = response['data'];
+        
+        if (responseData is Map<String, dynamic>) {
+          if (responseData['success'] == true) {
+            return AuthResponse(isSuccess: true);
+          } else {
+            return AuthResponse(
+              isSuccess: false,
+              error: responseData['error'] ?? 'Failed to send OTP',
+            );
+          }
+        }
+        
+        return AuthResponse(isSuccess: true);
+      } else {
+        return AuthResponse(
+          isSuccess: false,
+          error: response['error'] ?? 'Failed to send OTP',
+        );
+      }
+    } catch (e) {
+      print("❌ SEND OTP ERROR: $e");
+      return AuthResponse(
+        isSuccess: false,
+        error: 'Network error: ${e.toString()}',
+      );
+    }
+  }
+
+  // FORGOT PASSWORD METHOD
   Future<AuthResponse> forgotPassword(String email) async {
     try {
-      final response = await _apiService.forgotPassword(email);
+      final response = await _apiService.post('/api/auth/forgot-password/', {
+        'email': email,
+      });
       
-      if (response.statusCode == 200) {
-        final data = response.data;
+      if (response['success'] == true) {
+        final responseData = response['data'];
+        
+        if (responseData is Map<String, dynamic>) {
+          if (responseData['success'] == true) {
+            return AuthResponse(isSuccess: true);
+          } else {
+            return AuthResponse(
+              isSuccess: false,
+              error: responseData['error'] ?? 'Failed to send reset instructions',
+            );
+          }
+        }
+        
+        return AuthResponse(isSuccess: true);
+      } else {
         return AuthResponse(
-          message: data['message'],
-          otp: data['otp']?.toString(),
-          uid: data['uid'],
-          resetToken: data['token'],
+          isSuccess: false,
+          error: response['error'] ?? 'Failed to send reset instructions',
         );
       }
-      return AuthResponse(error: response.data['error'] ?? 'Failed to send reset email');
     } catch (e) {
-      return AuthResponse(error: 'Connection error. Please try again.');
+      print("❌ FORGOT PASSWORD ERROR: $e");
+      return AuthResponse(
+        isSuccess: false,
+        error: 'Network error: ${e.toString()}',
+      );
     }
   }
 
-  Future<bool> resetPassword(String uid, String token, String newPassword) async {
-    try {
-      final response = await _apiService.resetPassword(uid, token, newPassword);
-      return response.statusCode == 200;
-    } catch (e) {
-      return false;
-    }
-  }
-
+  // RESET PASSWORD METHOD
   Future<bool> resetPasswordWithOtp(String email, String otp, String newPassword) async {
     try {
-      final response = await _apiService.resetPasswordWithOtp(email, otp, newPassword);
-      return response.statusCode == 200;
-    } catch (e) {
+      final response = await _apiService.post('/api/auth/reset-password/', {
+        'email': email,
+        'otp': otp,
+        'new_password': newPassword,
+        'confirm_password': newPassword,
+      });
+      
+      if (response['success'] == true) {
+        final responseData = response['data'];
+        
+        if (responseData is Map<String, dynamic>) {
+          return responseData['success'] == true;
+        }
+        
+        return true;
+      }
+      
       return false;
-    }
-  }
-
-  Future<bool> resendOtp(String email) async {
-    try {
-      final response = await _apiService.resendOtp(email);
-      return response.statusCode == 200;
     } catch (e) {
+      print("❌ RESET PASSWORD ERROR: $e");
       return false;
     }
   }
 
   Future<User?> getCurrentUser() async {
-    final userData = await _storageService.getUser();
-    if (userData != null) {
-      return User.fromJson(userData);
-    }
-    return null;
+    return await _storageService.getUser();
   }
 
-  Future<bool> isAuthenticated() async {
-    final token = await _storageService.getToken();
-    return token != null;
+  Future<void> logout() async {
+    await _storageService.clearUser();
+    await _storageService.clearToken();
   }
 }

@@ -1,25 +1,31 @@
+// lib/screens/auth/login_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../../providers/auth_provider.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_textfield.dart';
-import '../../widgets/loading_indicator.dart';
 import '../../utils/constants.dart';
 import '../../utils/validators.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  const LoginScreen({super.key});
 
   @override
-  _LoginScreenState createState() => _LoginScreenState();
+  State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
+
+  // ✅ CHANGED: username controller
   final _usernameController = TextEditingController();
+
   final _passwordController = TextEditingController();
+
   bool _obscurePassword = true;
   bool _rememberMe = false;
   bool _isLoading = false;
@@ -33,32 +39,46 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _loadSavedCredentials() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+
       final savedUsername = prefs.getString('saved_username');
-      final rememberMe = prefs.getBool('remember_me') ?? false;
-      
+
+      final rememberMe =
+          prefs.getBool('remember_me') ?? false;
+
       setState(() {
         _rememberMe = rememberMe;
+
         if (rememberMe && savedUsername != null) {
           _usernameController.text = savedUsername;
         }
       });
     } catch (e) {
-      print('Error loading saved credentials: $e');
+      debugPrint(
+        'Error loading saved credentials: $e',
+      );
     }
   }
 
   Future<void> _saveCredentials() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+
       if (_rememberMe) {
-        await prefs.setString('saved_username', _usernameController.text.trim());
+        await prefs.setString(
+          'saved_username',
+          _usernameController.text.trim(),
+        );
+
         await prefs.setBool('remember_me', true);
       } else {
         await prefs.remove('saved_username');
+
         await prefs.setBool('remember_me', false);
       }
     } catch (e) {
-      print('Error saving credentials: $e');
+      debugPrint(
+        'Error saving credentials: $e',
+      );
     }
   }
 
@@ -70,45 +90,105 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _handleLogin() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() {
-        _isLoading = true;
-      });
-
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      
-      final success = await authProvider.login(
-        _usernameController.text.trim(),
-        _passwordController.text,
-      );
-      
-      if (success && mounted) {
-        await _saveCredentials();
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, '/dashboard');
-        }
-      } else {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+    if (!_formKey.currentState!.validate()) {
+      return;
     }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    final authProvider = Provider.of<AuthProvider>(
+      context,
+      listen: false,
+    );
+
+    final success = await authProvider.login(
+      _usernameController.text.trim(),
+      _passwordController.text.trim(),
+    );
+
+    if (success && mounted) {
+      await _saveCredentials();
+
+      if (mounted) {
+        Navigator.pushReplacementNamed(
+          context,
+          '/home',
+        );
+      }
+    } else {
+      if (authProvider.verificationEmail != null &&
+          mounted) {
+        _showVerificationDialog();
+      }
+
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _showVerificationDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text(
+            'Email Not Verified',
+          ),
+          content: const Text(
+            'Please verify your email before logging in.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+
+                Navigator.pushNamed(
+                  context,
+                  '/otp-verification',
+                  arguments: {
+                    'destination':
+                        Provider.of<AuthProvider>(
+                      context,
+                      listen: false,
+                    ).verificationEmail,
+                    'type': 'email',
+                    'purpose': 'verification',
+                  },
+                );
+              },
+              child: const Text(
+                'Verify Now',
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Consumer<AuthProvider>(
-        builder: (context, authProvider, child) {
+        builder: (
+          context,
+          authProvider,
+          child,
+        ) {
           return SafeArea(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                crossAxisAlignment:
+                    CrossAxisAlignment.stretch,
                 children: [
                   const SizedBox(height: 20),
-                  
-                  // Logo Only - Removed the text
+
+                  // LOGO - IMPROVED FITTING
                   Center(
                     child: Container(
                       width: 150,
@@ -128,8 +208,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         borderRadius: BorderRadius.circular(75),
                         child: Image.asset(
                           'assets/images/logo.jpg',
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
+                          fit: BoxFit.contain, // Changed from BoxFit.cover
+                          width: 150,
+                          height: 150,
+                          errorBuilder: (
+                            context,
+                            error,
+                            stackTrace,
+                          ) {
                             return Container(
                               decoration: BoxDecoration(
                                 color: AppColors.primaryGreen,
@@ -149,7 +235,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   const SizedBox(height: 50),
 
-                  // Welcome Text
+                  // TITLE
                   Text(
                     'Welcome Back!',
                     textAlign: TextAlign.center,
@@ -159,7 +245,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       color: AppColors.darkText,
                     ),
                   ),
+
                   const SizedBox(height: 8),
+
                   Text(
                     'Login to continue',
                     textAlign: TextAlign.center,
@@ -168,28 +256,33 @@ class _LoginScreenState extends State<LoginScreen> {
                       color: Colors.grey[600],
                     ),
                   ),
-                  
+
                   const SizedBox(height: 40),
 
-                  // Error Message
-                  if (authProvider.error != null) ...[
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: Colors.red[50],
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.red[200]!),
+                  // ERROR MESSAGE
+                  if (authProvider.error != null)
+                    ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.red[50],
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Colors.red[200]!,
+                          ),
+                        ),
+                        child: Text(
+                          authProvider.error!,
+                          style: const TextStyle(
+                            color: Colors.red,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
                       ),
-                      child: Text(
-                        authProvider.error!,
-                        style: const TextStyle(color: Colors.red),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                  ],
+                      const SizedBox(height: 20),
+                    ],
 
-                  // Login Form
+                  // FORM
                   Form(
                     key: _formKey,
                     child: Column(
@@ -200,7 +293,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           prefixIcon: Icons.person_outline,
                           validator: Validators.required,
                         ),
+
                         const SizedBox(height: 16),
+
                         CustomTextField(
                           controller: _passwordController,
                           label: 'Password',
@@ -208,7 +303,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           obscureText: _obscurePassword,
                           suffixIcon: IconButton(
                             icon: Icon(
-                              _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                              _obscurePassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
                             ),
                             onPressed: () {
                               setState(() {
@@ -221,14 +318,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                     ),
                   ),
-                  
+
                   const SizedBox(height: 12),
 
-                  // Remember Me and Forgot Password Row
+                  // REMEMBER ME + FORGOT PASSWORD
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      // Remember Me Checkbox
                       Row(
                         children: [
                           Checkbox(
@@ -252,11 +348,13 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ],
                       ),
-                      
-                      // Forgot Password
+
                       TextButton(
                         onPressed: () {
-                          Navigator.pushNamed(context, '/forgot-password');
+                          Navigator.pushNamed(
+                            context,
+                            '/forgot-password',
+                          );
                         },
                         child: Text(
                           'Forgot Password?',
@@ -269,30 +367,35 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ],
                   ),
-                  
+
                   const SizedBox(height: 24),
 
-                  // Login Button
+                  // LOGIN BUTTON
                   CustomButton(
                     text: 'LOGIN',
                     onPressed: _handleLogin,
                     isLoading: authProvider.isLoading || _isLoading,
                     isFullWidth: true,
                   ),
-                  
+
                   const SizedBox(height: 16),
 
-                  // Register Link
+                  // REGISTER
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
                         'Don\'t have an account? ',
-                        style: GoogleFonts.poppins(color: Colors.grey[600]),
+                        style: GoogleFonts.poppins(
+                          color: Colors.grey[600],
+                        ),
                       ),
                       GestureDetector(
                         onTap: () {
-                          Navigator.pushNamed(context, '/register');
+                          Navigator.pushNamed(
+                            context,
+                            '/register',
+                          );
                         },
                         child: Text(
                           'Register',
@@ -304,7 +407,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ],
                   ),
-                  
+
                   const SizedBox(height: 20),
                 ],
               ),

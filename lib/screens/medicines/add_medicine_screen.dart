@@ -7,12 +7,12 @@ import '../../providers/medicine_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/custom_button.dart';
 import '../../widgets/custom_textfield.dart';
-import '../../widgets/loading_indicator.dart';
+import '../../widgets/searchable_dropdown.dart';
 import '../../utils/constants.dart';
 import '../../utils/validators.dart';
 
 class AddMedicineScreen extends StatefulWidget {
-  const AddMedicineScreen({Key? key}) : super(key: key);
+  const AddMedicineScreen({super.key});
 
   @override
   _AddMedicineScreenState createState() => _AddMedicineScreenState();
@@ -22,18 +22,28 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _genericNameController = TextEditingController();
-  final _priceController = TextEditingController();
+  final _unitCostController = TextEditingController();
+  final _wholesalePriceController = TextEditingController();
+  final _retailPriceController = TextEditingController();
+  final _discountController = TextEditingController();
   final _quantityController = TextEditingController();
   final _minStockController = TextEditingController();
+  final _unitsPerPackController = TextEditingController();
   final _batchNumberController = TextEditingController();
+  final _barcodeController = TextEditingController();
   final _descriptionController = TextEditingController();
   
   DateTime? _expiryDate;
   Category? _selectedCategory;
   Supplier? _selectedSupplier;
+  String _unitType = 'tablet';
   
   bool _isLoading = false;
   String? _expiryError;
+
+  final List<String> _unitTypes = [
+    'tablet', 'capsule', 'bottle', 'strip', 'box', 'pack', 'ml', 'g'
+  ];
 
   @override
   void initState() {
@@ -53,10 +63,15 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
   void dispose() {
     _nameController.dispose();
     _genericNameController.dispose();
-    _priceController.dispose();
+    _unitCostController.dispose();
+    _wholesalePriceController.dispose();
+    _retailPriceController.dispose();
+    _discountController.dispose();
     _quantityController.dispose();
     _minStockController.dispose();
+    _unitsPerPackController.dispose();
     _batchNumberController.dispose();
+    _barcodeController.dispose();
     _descriptionController.dispose();
     super.dispose();
   }
@@ -65,7 +80,7 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now().add(const Duration(days: 30)),
-      firstDate: DateTime.now(), // CRITICAL: This prevents selecting past dates
+      firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365 * 5)),
     );
     if (picked != null) {
@@ -81,36 +96,38 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
       return 'Please select expiry date';
     }
     
-    // Get today's date at midnight for accurate comparison
     final today = DateTime.now();
     final todayMidnight = DateTime(today.year, today.month, today.day);
     
     if (_expiryDate!.isBefore(todayMidnight)) {
-      return 'Expiry date cannot be in the past. Selected date: ${_expiryDate!.day}/${_expiryDate!.month}/${_expiryDate!.year}';
+      return 'Expiry date cannot be in the past';
     }
     
     return null;
   }
 
+  double _calculateProfitMargin() {
+    final unitCost = double.tryParse(_unitCostController.text) ?? 0;
+    final retailPrice = double.tryParse(_retailPriceController.text) ?? 0;
+    if (unitCost == 0) return 0;
+    return ((retailPrice - unitCost) / unitCost * 100).roundToDouble();
+  }
+
   Future<void> _handleSubmit() async {
-    // Clear previous errors
     setState(() {
       _expiryError = null;
     });
 
-    // Validate form first
     if (!_formKey.currentState!.validate()) {
       return;
     }
 
-    // Validate expiry date
     final expiryValidation = _validateExpiryDate();
     if (expiryValidation != null) {
       setState(() {
         _expiryError = expiryValidation;
       });
       
-      // Show snackbar for immediate feedback
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('❌ $expiryValidation'),
@@ -150,9 +167,15 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
       'generic_name': _genericNameController.text.trim(),
       'category': _selectedCategory!.id,
       'supplier': _selectedSupplier!.id,
-      'price': double.parse(_priceController.text),
+      'unit_cost': double.parse(_unitCostController.text),
+      'wholesale_price': double.parse(_wholesalePriceController.text),
+      'retail_price': double.parse(_retailPriceController.text),
+      'discount_percentage': double.parse(_discountController.text.isEmpty ? '0' : _discountController.text),
       'quantity': int.parse(_quantityController.text),
       'min_stock_level': int.parse(_minStockController.text),
+      'unit_type': _unitType,
+      'units_per_pack': int.parse(_unitsPerPackController.text.isEmpty ? '1' : _unitsPerPackController.text),
+      'barcode': _barcodeController.text.trim(),
       'expiry_date': _expiryDate!.toIso8601String().split('T')[0],
       'batch_number': _batchNumberController.text.trim(),
       'description': _descriptionController.text.trim(),
@@ -230,7 +253,7 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // Basic Information
+                  // Basic Information Card
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(16),
@@ -262,69 +285,39 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
                           ),
                           const SizedBox(height: 16),
                           
-                          // Category Dropdown
-                          DropdownButtonFormField<Category>(
-                            value: _selectedCategory,
-                            isExpanded: true,
-                            decoration: InputDecoration(
-                              labelText: 'Category *',
-                              prefixIcon: const Icon(Icons.category),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            items: provider.categories.map((category) {
-                              return DropdownMenuItem<Category>(
-                                value: category,
-                                child: Text(
-                                  category.name,
-                                  style: GoogleFonts.poppins(),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              );
-                            }).toList(),
-                            onChanged: (Category? value) {
+                          // Searchable Category Dropdown
+                          SearchableDropdown<Category>(
+                            items: provider.categories,
+                            selectedItem: _selectedCategory,
+                            label: 'Category',
+                            hint: 'Search for a category...',
+                            prefixIcon: Icons.category,
+                            displayName: (category) => category.name,
+                            validator: (value) => value == null ? 'Please select a category' : null,
+                            onChanged: (category) {
                               setState(() {
-                                _selectedCategory = value;
+                                _selectedCategory = category;
                               });
                             },
-                            validator: (value) {
-                              if (value == null) return 'Please select a category';
-                              return null;
-                            },
+                            isLoading: provider.isLoading,
                           ),
                           const SizedBox(height: 16),
                           
-                          // Supplier Dropdown
-                          DropdownButtonFormField<Supplier>(
-                            value: _selectedSupplier,
-                            isExpanded: true,
-                            decoration: InputDecoration(
-                              labelText: 'Supplier *',
-                              prefixIcon: const Icon(Icons.business),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                            items: provider.suppliers.map((supplier) {
-                              return DropdownMenuItem<Supplier>(
-                                value: supplier,
-                                child: Text(
-                                  supplier.name,
-                                  style: GoogleFonts.poppins(),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              );
-                            }).toList(),
-                            onChanged: (Supplier? value) {
+                          // Searchable Supplier Dropdown
+                          SearchableDropdown<Supplier>(
+                            items: provider.suppliers,
+                            selectedItem: _selectedSupplier,
+                            label: 'Supplier',
+                            hint: 'Search for a supplier...',
+                            prefixIcon: Icons.business,
+                            displayName: (supplier) => supplier.name,
+                            validator: (value) => value == null ? 'Please select a supplier' : null,
+                            onChanged: (supplier) {
                               setState(() {
-                                _selectedSupplier = value;
+                                _selectedSupplier = supplier;
                               });
                             },
-                            validator: (value) {
-                              if (value == null) return 'Please select a supplier';
-                              return null;
-                            },
+                            isLoading: provider.isLoading,
                           ),
                         ],
                       ),
@@ -333,7 +326,7 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
                   
                   const SizedBox(height: 16),
                   
-                  // Pricing and Stock
+                  // Pricing & Stock Card
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(16),
@@ -349,32 +342,102 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
                             ),
                           ),
                           const SizedBox(height: 16),
-                          
-                          Row(
-                            children: [
-                              Expanded(
-                                child: CustomTextField(
-                                  controller: _priceController,
-                                  label: 'Price *',
-                                  prefixIcon: Icons.attach_money,
-                                  keyboardType: TextInputType.number,
-                                  validator: Validators.positiveNumber,
-                                ),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: CustomTextField(
-                                  controller: _quantityController,
-                                  label: 'Quantity *',
-                                  prefixIcon: Icons.inventory,
-                                  keyboardType: TextInputType.number,
-                                  validator: Validators.integer,
-                                ),
-                              ),
-                            ],
+
+                          CustomTextField(
+                            controller: _unitCostController,
+                            label: 'Unit Cost (UGX) *',
+                            prefixIcon: Icons.shopping_cart,
+                            keyboardType: TextInputType.number,
+                            validator: Validators.positiveNumber,
                           ),
-                          const SizedBox(height: 16),
-                          
+                          const SizedBox(height: 12),
+
+                          CustomTextField(
+                            controller: _wholesalePriceController,
+                            label: 'Wholesale Price (UGX) *',
+                            prefixIcon: Icons.business,
+                            keyboardType: TextInputType.number,
+                            validator: Validators.positiveNumber,
+                          ),
+                          const SizedBox(height: 12),
+
+                          CustomTextField(
+                            controller: _retailPriceController,
+                            label: 'Retail Price (UGX) *',
+                            prefixIcon: Icons.attach_money,
+                            keyboardType: TextInputType.number,
+                            validator: Validators.positiveNumber,
+                          ),
+                          const SizedBox(height: 12),
+
+                          CustomTextField(
+                            controller: _discountController,
+                            label: 'Default Discount (%)',
+                            prefixIcon: Icons.percent,
+                            keyboardType: TextInputType.number,
+                          ),
+                          const SizedBox(height: 12),
+
+                          // FIXED: Wrapped Row in SingleChildScrollView to prevent overflow
+                          SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: [
+                                SizedBox(
+                                  width: MediaQuery.of(context).size.width * 0.42,
+                                  child: CustomTextField(
+                                    controller: _quantityController,
+                                    label: 'Quantity *',
+                                    prefixIcon: Icons.inventory,
+                                    keyboardType: TextInputType.number,
+                                    validator: Validators.integer,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                SizedBox(
+                                  width: MediaQuery.of(context).size.width * 0.42,
+                                  child: DropdownButtonFormField<String>(
+                                    value: _unitType,
+                                    decoration: InputDecoration(
+                                      labelText: 'Unit Type',
+                                      prefixIcon: const Icon(Icons.science),
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      contentPadding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 12,
+                                      ),
+                                    ),
+                                    items: _unitTypes.map((type) {
+                                      return DropdownMenuItem(
+                                        value: type,
+                                        child: Text(
+                                          type[0].toUpperCase() + type.substring(1),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      );
+                                    }).toList(),
+                                    onChanged: (value) {
+                                      setState(() {
+                                        _unitType = value!;
+                                      });
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+
+                          CustomTextField(
+                            controller: _unitsPerPackController,
+                            label: 'Units per Pack/Strip',
+                            prefixIcon: Icons.inventory_2,
+                            keyboardType: TextInputType.number,
+                          ),
+                          const SizedBox(height: 12),
+
                           CustomTextField(
                             controller: _minStockController,
                             label: 'Minimum Stock Level *',
@@ -382,6 +445,38 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
                             keyboardType: TextInputType.number,
                             validator: Validators.integer,
                           ),
+
+                          // Profit Margin Preview
+                          if (_unitCostController.text.isNotEmpty && 
+                              _retailPriceController.text.isNotEmpty)
+                            Container(
+                              margin: const EdgeInsets.only(top: 16),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: AppColors.veryLightGreen,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Profit Margin:',
+                                    style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+                                  ),
+                                  Text(
+                                    '${_calculateProfitMargin()}%',
+                                    style: GoogleFonts.poppins(
+                                      fontWeight: FontWeight.bold,
+                                      color: _calculateProfitMargin() > 20 
+                                          ? Colors.green 
+                                          : _calculateProfitMargin() > 10 
+                                              ? Colors.orange 
+                                              : Colors.red,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                         ],
                       ),
                     ),
@@ -389,7 +484,7 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
                   
                   const SizedBox(height: 16),
                   
-                  // Expiry and Batch - CRITICAL SECTION
+                  // Expiry and Batch Card
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(16),
@@ -406,7 +501,6 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
                           ),
                           const SizedBox(height: 16),
                           
-                          // Expiry Date Picker with validation
                           InkWell(
                             onTap: _selectDate,
                             child: InputDecorator(
@@ -417,10 +511,6 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 errorText: _expiryError,
-                                errorStyle: GoogleFonts.poppins(
-                                  color: Colors.red,
-                                  fontSize: 12,
-                                ),
                               ),
                               child: Text(
                                 _expiryDate == null
@@ -433,42 +523,38 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
                             ),
                           ),
                           
-                          // Warning message
-                          Container(
-                            margin: const EdgeInsets.only(top: 8),
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: Colors.orange.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.orange.shade200),
-                            ),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.warning_amber_rounded,
-                                  size: 16,
-                                  color: Colors.orange.shade700,
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    'Expiry date must be in the future. Today is ${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 12,
-                                      color: Colors.orange.shade700,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          
                           const SizedBox(height: 16),
                           
                           CustomTextField(
                             controller: _batchNumberController,
                             label: 'Batch Number',
                             prefixIcon: Icons.qr_code,
+                          ),
+                          const SizedBox(height: 16),
+
+                          Row(
+                            children: [
+                              Expanded(
+                                child: CustomTextField(
+                                  controller: _barcodeController,
+                                  label: 'Barcode/QR Code',
+                                  prefixIcon: Icons.qr_code,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              IconButton(
+                                onPressed: () async {
+                                  final result = await Navigator.pushNamed(context, '/qr-scanner');
+                                  if (result != null && result is String) {
+                                    setState(() {
+                                      _barcodeController.text = result;
+                                    });
+                                  }
+                                },
+                                icon: const Icon(Icons.qr_code_scanner),
+                                color: AppColors.primaryGreen,
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -477,7 +563,7 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
                   
                   const SizedBox(height: 16),
                   
-                  // Description
+                  // Description Card
                   Card(
                     child: Padding(
                       padding: const EdgeInsets.all(16),
@@ -507,7 +593,6 @@ class _AddMedicineScreenState extends State<AddMedicineScreen> {
                   
                   const SizedBox(height: 24),
                   
-                  // Submit Button
                   CustomButton(
                     text: 'ADD MEDICINE',
                     onPressed: _handleSubmit,

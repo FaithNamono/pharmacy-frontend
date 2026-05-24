@@ -7,7 +7,7 @@ import '../../widgets/custom_button.dart';
 import '../../utils/constants.dart';
 
 class StaffListScreen extends StatefulWidget {
-  const StaffListScreen({Key? key}) : super(key: key);
+  const StaffListScreen({super.key});
 
   @override
   _StaffListScreenState createState() => _StaffListScreenState();
@@ -179,8 +179,8 @@ class _StaffListScreenState extends State<StaffListScreen> {
                 ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddStaffDialog,
-        child: const Icon(Icons.add),
         backgroundColor: AppColors.primaryGreen,
+        child: const Icon(Icons.add),
       ),
     );
   }
@@ -310,7 +310,7 @@ class _StaffListScreenState extends State<StaffListScreen> {
 }
 
 class AddStaffDialog extends StatefulWidget {
-  const AddStaffDialog({Key? key}) : super(key: key);
+  const AddStaffDialog({super.key});
 
   @override
   _AddStaffDialogState createState() => _AddStaffDialogState();
@@ -422,7 +422,7 @@ class _AddStaffDialogState extends State<AddStaffDialog> {
               const SizedBox(height: 16),
 
               DropdownButtonFormField<String>(
-                value: _selectedRole,
+                initialValue: _selectedRole,
                 decoration: const InputDecoration(
                   labelText: 'Role',
                   prefixIcon: Icon(Icons.admin_panel_settings),

@@ -4,7 +4,7 @@ import 'loading_indicator.dart';
 
 class CustomButton extends StatelessWidget {
   final String text;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed; // ✅ nullable
   final bool isLoading;
   final bool isFullWidth;
   final Color? color;
@@ -13,7 +13,7 @@ class CustomButton extends StatelessWidget {
   final double? height;
 
   const CustomButton({
-    Key? key,
+    super.key,
     required this.text,
     required this.onPressed,
     this.isLoading = false,
@@ -22,7 +22,7 @@ class CustomButton extends StatelessWidget {
     this.textColor,
     this.width,
     this.height,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +37,7 @@ class CustomButton extends StatelessWidget {
           disabledBackgroundColor: Colors.grey.shade400,
         ),
         child: isLoading
-            ? LoadingIndicator(color: Colors.white, size: 24)
+            ? const LoadingIndicator(color: Colors.white, size: 24)
             : Text(
                 text,
                 style: GoogleFonts.poppins(

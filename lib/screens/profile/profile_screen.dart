@@ -6,7 +6,7 @@ import '../../widgets/custom_button.dart';
 import '../../utils/constants.dart';
 
 class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({Key? key}) : super(key: key);
+  const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -122,10 +122,10 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       TextButton(
                         onPressed: () => Navigator.pop(context, true),
-                        child: const Text('Logout'),
                         style: TextButton.styleFrom(
                           foregroundColor: Colors.red,
                         ),
+                        child: const Text('Logout'),
                       ),
                     ],
                   ),
@@ -199,7 +199,7 @@ class ProfileScreen extends StatelessWidget {
                 ),
               ],
             ),
-          )).toList(),
+          )),
         ],
       ),
     );

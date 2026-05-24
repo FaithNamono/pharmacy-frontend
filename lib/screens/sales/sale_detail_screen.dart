@@ -1,22 +1,25 @@
+// lib/screens/sales/sale_detail_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../models/sale.dart';
 import '../../providers/sale_provider.dart';
-import '../../providers/medicine_provider.dart';
 import '../../widgets/loading_indicator.dart';
+import '../../services/pdf_service.dart';
 import '../../utils/constants.dart';
 
 class SaleDetailScreen extends StatefulWidget {
-  final int saleId;
+  final String saleId;
 
-  const SaleDetailScreen({Key? key, required this.saleId}) : super(key: key);
+  const SaleDetailScreen({super.key, required this.saleId});
 
   @override
   _SaleDetailScreenState createState() => _SaleDetailScreenState();
 }
 
 class _SaleDetailScreenState extends State<SaleDetailScreen> {
-  Map<String, dynamic>? _sale;
+  SaleGroup? _saleGroup;
   bool _isLoading = true;
 
   @override
@@ -29,25 +32,28 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
     setState(() => _isLoading = true);
     
     final saleProvider = Provider.of<SaleProvider>(context, listen: false);
-    final sale = await saleProvider.getSaleById(widget.saleId);
+    final saleGroup = await saleProvider.getSaleGroupById(widget.saleId);
     
-    if (sale != null) {
-      setState(() {
-        _sale = {
-          'id': sale.id,
-          'saleId': sale.saleId,
-          'medicineName': sale.medicineName,
-          'staffName': sale.staffName,
-          'quantity': sale.quantity,
-          'unitPrice': sale.unitPrice,
-          'totalPrice': sale.totalPrice,
-          'saleDate': sale.saleDate,
-          'notes': sale.notes,
-        };
-        _isLoading = false;
-      });
-    } else {
-      setState(() => _isLoading = false);
+    setState(() {
+      _saleGroup = saleGroup;
+      _isLoading = false;
+    });
+  }
+
+  Future<void> _printReceipt() async {
+    if (_saleGroup == null) return;
+    
+    try {
+      await PdfService.generateSaleReceipt(_saleGroup!);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to generate receipt: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -58,6 +64,11 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
         title: const Text('Sale Details'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.print),
+            onPressed: _printReceipt,
+            tooltip: 'Print Receipt',
+          ),
+          IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _loadSaleDetails,
           ),
@@ -65,7 +76,7 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
       ),
       body: _isLoading
           ? const LoadingIndicator()
-          : _sale == null
+          : _saleGroup == null
               ? Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -90,7 +101,6 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     children: [
-                      // Receipt Card
                       Card(
                         elevation: 4,
                         shape: RoundedRectangleBorder(
@@ -100,7 +110,6 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                           padding: const EdgeInsets.all(24),
                           child: Column(
                             children: [
-                              // Header
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
@@ -108,7 +117,7 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        'CT PHARMACY',
+                                        'DERVIN PHARMACY',
                                         style: GoogleFonts.poppins(
                                           fontSize: 20,
                                           fontWeight: FontWeight.bold,
@@ -131,7 +140,7 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Text(
-                                      _sale!['saleId'],
+                                      _saleGroup!.saleId,
                                       style: GoogleFonts.poppins(
                                         fontSize: 12,
                                         fontWeight: FontWeight.w600,
@@ -145,92 +154,132 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                               const Divider(),
                               const SizedBox(height: 16),
 
-                              // Date and Staff
                               _buildInfoRow(
                                 'Date:',
-                                '${_sale!['saleDate'].day}/${_sale!['saleDate'].month}/${_sale!['saleDate'].year} ${_sale!['saleDate'].hour}:${_sale!['saleDate'].minute}',
+                                '${_saleGroup!.saleDate.day}/${_saleGroup!.saleDate.month}/${_saleGroup!.saleDate.year} ${_saleGroup!.saleDate.hour}:${_saleGroup!.saleDate.minute.toString().padLeft(2, '0')}',
                               ),
                               const SizedBox(height: 8),
                               _buildInfoRow(
                                 'Staff:',
-                                _sale!['staffName'],
+                                _saleGroup!.staffName,
                               ),
+                              if (_saleGroup!.customerName != null && _saleGroup!.customerName!.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                _buildInfoRow(
+                                  'Customer:',
+                                  _saleGroup!.customerName!,
+                                ),
+                              ],
+                              if (_saleGroup!.paymentMethod != null && _saleGroup!.paymentMethod!.isNotEmpty) ...[
+                                const SizedBox(height: 8),
+                                _buildInfoRow(
+                                  'Payment:',
+                                  _saleGroup!.paymentMethod!,
+                                ),
+                              ],
                               const SizedBox(height: 16),
                               const Divider(),
                               const SizedBox(height: 16),
 
-                              // Medicine Details
                               Row(
                                 children: [
                                   Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Medicine',
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 12,
-                                            color: Colors.grey.shade600,
-                                          ),
-                                        ),
-                                        Text(
-                                          _sale!['medicineName'],
-                                          style: GoogleFonts.poppins(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ],
+                                    flex: 3,
+                                    child: Text(
+                                      'Medicine',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.grey.shade600,
+                                      ),
                                     ),
                                   ),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      Text(
-                                        'Unit Price',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 12,
-                                          color: Colors.grey.shade600,
-                                        ),
+                                  Expanded(
+                                    flex: 1,
+                                    child: Text(
+                                      'Qty',
+                                      textAlign: TextAlign.center,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.grey.shade600,
                                       ),
-                                      Text(
-                                        'UGX ${_sale!['unitPrice'].toStringAsFixed(0)}',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-
-                              // Quantity
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'Quantity:',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
                                     ),
                                   ),
-                                  Text(
-                                    '${_sale!['quantity']}',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
+                                  Expanded(
+                                    flex: 2,
+                                    child: Text(
+                                      'Price',
+                                      textAlign: TextAlign.right,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 2,
+                                    child: Text(
+                                      'Total',
+                                      textAlign: TextAlign.right,
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.grey.shade600,
+                                      ),
                                     ),
                                   ),
                                 ],
                               ),
+                              const SizedBox(height: 8),
+                              
+                              ..._saleGroup!.items.map((item) => Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      flex: 3,
+                                      child: Text(
+                                        item.medicineName,
+                                        style: GoogleFonts.poppins(fontSize: 14),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 1,
+                                      child: Text(
+                                        '${item.quantity}',
+                                        textAlign: TextAlign.center,
+                                        style: GoogleFonts.poppins(fontSize: 14),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Text(
+                                        'UGX ${item.unitPrice.toStringAsFixed(0)}',
+                                        textAlign: TextAlign.right,
+                                        style: GoogleFonts.poppins(fontSize: 14),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Text(
+                                        'UGX ${item.totalPrice.toStringAsFixed(0)}',
+                                        textAlign: TextAlign.right,
+                                        style: GoogleFonts.poppins(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )),
+                              
                               const SizedBox(height: 16),
                               const Divider(),
                               const SizedBox(height: 16),
 
-                              // Total
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
@@ -242,7 +291,7 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                                     ),
                                   ),
                                   Text(
-                                    'UGX ${_sale!['totalPrice'].toStringAsFixed(0)}',
+                                    'UGX ${_saleGroup!.totalAmount.toStringAsFixed(0)}',
                                     style: GoogleFonts.poppins(
                                       fontSize: 24,
                                       fontWeight: FontWeight.bold,
@@ -253,37 +302,53 @@ class _SaleDetailScreenState extends State<SaleDetailScreen> {
                               ),
                               const SizedBox(height: 24),
 
-                              // Notes if any
-                              if (_sale!['notes'].isNotEmpty) ...[
-                                const Divider(),
-                                const SizedBox(height: 16),
-                                Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Notes:',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.grey.shade600,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        _sale!['notes'],
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade50,
+                                  borderRadius: BorderRadius.circular(8),
                                 ),
-                              ],
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          'Total Items:',
+                                          style: GoogleFonts.poppins(fontSize: 12),
+                                        ),
+                                        Text(
+                                          '${_saleGroup!.totalItems} units',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          'Medicine Types:',
+                                          style: GoogleFonts.poppins(fontSize: 12),
+                                        ),
+                                        Text(
+                                          '${_saleGroup!.medicineCount} different',
+                                          style: GoogleFonts.poppins(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
 
                               const SizedBox(height: 16),
-                              // Thank you message
+                              
                               Text(
                                 'Thank you for your purchase!',
                                 style: GoogleFonts.poppins(
