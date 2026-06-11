@@ -1,3 +1,5 @@
+// lib/screens/splash_screen.dart (CORRECTED)
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -22,27 +24,20 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 600), // Even faster animation
+      duration: const Duration(milliseconds: 400),
     );
     
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
+      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
     );
     
-    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
+    _scaleAnimation = Tween<double>(begin: 0.9, end: 1.0).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
     );
     
     _controller.forward();
     
-    // Pre-cache logo immediately
-    _precacheLogo();
-    
     _navigateToNext();
-  }
-  
-  Future<void> _precacheLogo() async {
-    await precacheImage(const AssetImage('assets/images/logo.jpg'), context);
   }
 
   Future<void> _navigateToNext() async {
@@ -52,20 +47,17 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     final bool isFirstLaunch = prefs.getBool(StorageKeys.firstLaunch) ?? true;
     final String? token = prefs.getString(StorageKeys.token);
     
-    if (isFirstLaunch) {
-      await prefs.setBool(StorageKeys.firstLaunch, false);
-      if (mounted) {
+    if (mounted) {
+      if (isFirstLaunch) {
+        await prefs.setBool(StorageKeys.firstLaunch, false);
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const OnboardingScreen()),
         );
-      }
-    } else if (token != null) {
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, '/dashboard');
-      }
-    } else {
-      if (mounted) {
+      } else if (token != null && token.isNotEmpty) {
+        // ✅ CHANGE THIS: Use '/home' instead of '/dashboard'
+        Navigator.pushReplacementNamed(context, '/home');
+      } else {
         Navigator.pushReplacementNamed(context, '/login');
       }
     }
@@ -89,60 +81,45 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // Pharmacy Logo - Optimized for fast loading
-                Container(
-                  width: 160,
-                  height: 160,
-                  decoration: BoxDecoration(
-                    color: AppColors.veryLightGreen,
-                    borderRadius: BorderRadius.circular(80),
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primaryGreen.withOpacity(0.2),
-                        blurRadius: 15,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(80),
-                    child: Image.asset(
-                      'assets/images/logo.jpg',
-                      fit: BoxFit.cover,
-                      cacheWidth: 160, // Reduced to actual display size
-                      cacheHeight: 160, // Reduced to actual display size
-                      errorBuilder: (context, error, stackTrace) {
-                        // Fallback gradient logo
-                        return Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [AppColors.primaryGreen, AppColors.primaryGreen.withOpacity(0.7)],
-                            ),
-                            borderRadius: BorderRadius.circular(80),
-                          ),
-                          child: const Icon(
-                            Icons.local_pharmacy,
-                            color: Colors.white,
-                            size: 80,
-                          ),
-                        );
-                      },
-                    ),
+                // Simple logo - No circle, no shadows, pure image
+                SizedBox(
+                  width: 140,
+                  height: 140,
+                  child: Image.asset(
+                    'assets/images/logo.jpg',
+                    fit: BoxFit.contain,
+                    cacheWidth: 280,
+                    cacheHeight: 280,
+                    frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+                      if (wasSynchronouslyLoaded) {
+                        return child;
+                      }
+                      return AnimatedOpacity(
+                        opacity: frame == null ? 0.0 : 1.0,
+                        duration: const Duration(milliseconds: 200),
+                        child: child,
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return Icon(
+                        Icons.local_pharmacy,
+                        color: AppColors.primaryGreen,
+                        size: 100,
+                      );
+                    },
                   ),
                 ),
                 
-                const SizedBox(height: 24), // Reduced spacing
+                const SizedBox(height: 24),
                 
-                // DERVIN Pharmacy Name - Fixed (removed duplicate)
+                // DERVIN Pharmacy Name
                 RichText(
                   text: TextSpan(
                     children: [
                       TextSpan(
                         text: 'DERVIN ',
                         style: GoogleFonts.poppins(
-                          fontSize: 34,
+                          fontSize: 32,
                           fontWeight: FontWeight.bold,
                           color: AppColors.primaryGreen,
                           letterSpacing: -0.5,
@@ -151,7 +128,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                       TextSpan(
                         text: 'PHARMACY',
                         style: GoogleFonts.poppins(
-                          fontSize: 34,
+                          fontSize: 32,
                           fontWeight: FontWeight.bold,
                           color: AppColors.darkText,
                           letterSpacing: -0.5,
@@ -161,9 +138,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                   ),
                 ),
                 
-                const SizedBox(height: 4),
-                
-                // Removed duplicate "DERVIN PHARMACY" text line
+                const SizedBox(height: 8),
                 
                 Text(
                   AppStrings.tagline,
@@ -174,20 +149,24 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                   ),
                 ),
                 
-                const SizedBox(height: 40),
+                const SizedBox(height: 48),
                 
-                const CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryGreen),
-                  strokeWidth: 2.5,
+                SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2.5,
+                    valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primaryGreen),
+                  ),
                 ),
                 
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 
                 Text(
                   AppStrings.loading,
                   style: GoogleFonts.poppins(
                     color: AppColors.darkGrey,
-                    fontSize: 12,
+                    fontSize: 11,
                   ),
                 ),
               ],

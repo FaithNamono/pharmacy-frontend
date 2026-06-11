@@ -2,8 +2,8 @@
 
 import 'dart:convert';
 import 'dart:html' as html;
-
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 
 class ReportProvider extends ChangeNotifier {
@@ -101,30 +101,32 @@ class ReportProvider extends ChangeNotifier {
   // SALES REPORT
   // =========================================================
 
-  Future<void> loadSalesReport({
-    String? startDate,
-    String? endDate,
-  }) async {
+  Future<void> loadSalesReport({DateTime? startDate, DateTime? endDate}) async {
     try {
-      _setLoading(true);
-
-      final response = await _apiService.getSalesReport(
-        startDate: startDate,
-        endDate: endDate,
-      );
-
-      if (_hasError(response)) {
-        _setError(response['error'] ?? 'Failed to load sales report');
-        return;
+      _isLoading = true;
+      notifyListeners();
+      
+      String endpoint = '/api/reports/sales/';
+      if (startDate != null && endDate != null) {
+        final startStr = DateFormat('yyyy-MM-dd').format(startDate);
+        final endStr = DateFormat('yyyy-MM-dd').format(endDate);
+        endpoint += '?start=$startStr&end=$endStr';
       }
-
-      _salesReport = Map<String, dynamic>.from(response['data']);
-
-      clearError();
+      
+      final response = await _apiService.get(endpoint);
+      
+      if (response['success'] == true) {
+        _salesReport = response['data'] as Map<String, dynamic>;
+        _error = null;
+      } else {
+        _error = response['error'];
+      }
     } catch (e) {
-      _setError(e.toString());
+      _error = 'Failed to load sales report: $e';
+      print('❌ Error loading sales report: $e');
     } finally {
-      _setLoading(false);
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
@@ -157,36 +159,44 @@ class ReportProvider extends ChangeNotifier {
   // STAFF REPORT
   // =========================================================
 
-  Future<void> loadStaffReport() async {
-  try {
-    _setLoading(true);
-    
-    final response = await _apiService.getStaffReport();
-    
-    print('📊 STAFF REPORT API RESPONSE: ${response['success']}');
-    print('📊 STAFF REPORT DATA: ${response['data']}');
-    
-    if (_hasError(response)) {
-      _setError(response['error'] ?? 'Failed to load staff report');
-      return;
+  Future<void> loadStaffReport({DateTime? startDate, DateTime? endDate}) async {
+    try {
+      _setLoading(true);
+      
+      String endpoint = '/api/reports/staff/';
+      if (startDate != null && endDate != null) {
+        final startStr = DateFormat('yyyy-MM-dd').format(startDate);
+        final endStr = DateFormat('yyyy-MM-dd').format(endDate);
+        endpoint += '?start_date=$startStr&end_date=$endStr';
+      }
+      
+      final response = await _apiService.get(endpoint);
+      
+      print('📊 STAFF REPORT API RESPONSE: ${response['success']}');
+      print('📊 STAFF REPORT DATA: ${response['data']}');
+      
+      if (_hasError(response)) {
+        _setError(response['error'] ?? 'Failed to load staff report');
+        return;
+      }
+      
+      _staffReport = Map<String, dynamic>.from(response['data']);
+      
+      // Print staff summary details
+      final staffSummary = _staffReport?['staff_summary'] ?? [];
+      print('📊 NUMBER OF STAFF MEMBERS: ${staffSummary.length}');
+      for (var staff in staffSummary) {
+        print('📊 STAFF: ${staff['name']} - Role: ${staff['role']} - Sales: ${staff['total_sales']}');
+      }
+      
+      clearError();
+    } catch (e) {
+      _setError(e.toString());
+    } finally {
+      _setLoading(false);
     }
-    
-    _staffReport = Map<String, dynamic>.from(response['data']);
-    
-    // Print staff summary details
-    final staffSummary = _staffReport?['staff_summary'] ?? [];
-    print('📊 NUMBER OF STAFF MEMBERS: ${staffSummary.length}');
-    for (var staff in staffSummary) {
-      print('📊 STAFF: ${staff['name']} - Role: ${staff['role']} - Sales: ${staff['total_sales']}');
-    }
-    
-    clearError();
-  } catch (e) {
-    _setError(e.toString());
-  } finally {
-    _setLoading(false);
   }
-}
+  
   // =========================================================
   // DAILY SALES REPORT
   // =========================================================

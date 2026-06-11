@@ -34,11 +34,14 @@ dependencies:
   permission_handler: ^11.3.1
   path_provider: ^2.1.2
   share_plus: ^9.0.0
+  sqflite: ^2.3.0
+  path: ^1.9.0
+  
 
 
   # QR Code
   qr_flutter: ^4.1.0
-  mobile_scanner: ^3.5.5
+  mobile_scanner: ^4.0.1
 
   # PDF Generation
   pdf: ^3.10.7

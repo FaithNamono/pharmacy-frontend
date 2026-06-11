@@ -1,4 +1,4 @@
-// lib/services/pdf_service.dart - COMPLETE WORKING VERSION
+// lib/services/pdf_service.dart - COMPLETE WORKING VERSION WITH FIXED EMOJIS
 
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -165,11 +165,6 @@ class PdfService {
             'Thank you for your purchase!',
             style: _getTextStyle(fontSize: 12, bold: true, color: primaryColor),
           ),
-          pw.SizedBox(height: 5),
-          pw.Text(
-            'This is a computer generated receipt. No signature required.',
-            style: _getTextStyle(fontSize: 8, color: secondaryColor),
-          ),
           pw.Text(
             'Page ${context.pageNumber}',
             style: _getTextStyle(fontSize: 8, color: secondaryColor),
@@ -180,232 +175,232 @@ class PdfService {
   }
 
   static List<pw.Widget> _buildReceiptContent(SaleGroup saleGroup) {
-  return [
-    // Cashier and Customer Info
-    pw.Container(
-      margin: const pw.EdgeInsets.only(bottom: 15),
-      padding: const pw.EdgeInsets.all(10),
-      decoration: pw.BoxDecoration(
-        color: PdfColors.grey100,
-        borderRadius: pw.BorderRadius.circular(5),
+    return [
+      // Cashier and Customer Info (without emojis)
+      pw.Container(
+        margin: const pw.EdgeInsets.only(bottom: 15),
+        padding: const pw.EdgeInsets.all(10),
+        decoration: pw.BoxDecoration(
+          color: PdfColors.grey100,
+          borderRadius: pw.BorderRadius.circular(5),
+        ),
+        child: pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+          children: [
+            pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text('Cashier:', style: _getTextStyle(fontSize: 10, bold: true)),
+                pw.Text(saleGroup.staffName, style: _getTextStyle(fontSize: 10)),
+              ],
+            ),
+            if (saleGroup.customerName != null && saleGroup.customerName!.isNotEmpty)
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.end,
+                children: [
+                  pw.Text('Customer:', style: _getTextStyle(fontSize: 10, bold: true)),
+                  pw.Text(saleGroup.customerName!, style: _getTextStyle(fontSize: 10)),
+                ],
+              ),
+          ],
+        ),
       ),
-      child: pw.Row(
-        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-        children: [
-          pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
-            children: [
-              pw.Text('👤 Cashier:', style: _getTextStyle(fontSize: 10, bold: true)),
-              pw.Text(saleGroup.staffName, style: _getTextStyle(fontSize: 10)),
-            ],
-          ),
-          if (saleGroup.customerName != null && saleGroup.customerName!.isNotEmpty)
+      
+      // Payment Method
+      pw.Container(
+        margin: const pw.EdgeInsets.only(bottom: 15),
+        child: pw.Row(
+          children: [
+            pw.Text('Payment Method: ', style: _getTextStyle(fontSize: 10, bold: true)),
+            pw.Text(
+              saleGroup.paymentMethod ?? 'Cash',
+              style: _getTextStyle(fontSize: 10),
+            ),
+          ],
+        ),
+      ),
+      
+      pw.Divider(),
+      pw.SizedBox(height: 10),
+      
+      // Items Header
+      pw.Container(
+        padding: const pw.EdgeInsets.all(8),
+        decoration: pw.BoxDecoration(
+          color: PdfColors.grey300,
+          borderRadius: pw.BorderRadius.circular(5),
+        ),
+        child: pw.Row(
+          children: [
+            pw.Expanded(
+              flex: 4,
+              child: pw.Text(
+                'Medicine',
+                style: _getTextStyle(fontSize: 11, bold: true),
+              ),
+            ),
+            pw.Expanded(
+              flex: 1,
+              child: pw.Text(
+                'Qty',
+                textAlign: pw.TextAlign.center,
+                style: _getTextStyle(fontSize: 11, bold: true),
+              ),
+            ),
+            pw.Expanded(
+              flex: 2,
+              child: pw.Text(
+                'Price',
+                textAlign: pw.TextAlign.right,
+                style: _getTextStyle(fontSize: 11, bold: true),
+              ),
+            ),
+            pw.Expanded(
+              flex: 2,
+              child: pw.Text(
+                'Total',
+                textAlign: pw.TextAlign.right,
+                style: _getTextStyle(fontSize: 11, bold: true),
+              ),
+            ),
+          ],
+        ),
+      ),
+      
+      pw.SizedBox(height: 5),
+      
+      // Items List
+      ...saleGroup.items.map((item) => pw.Padding(
+        padding: const pw.EdgeInsets.symmetric(vertical: 4),
+        child: pw.Row(
+          children: [
+            pw.Expanded(
+              flex: 4,
+              child: pw.Text(
+                item.medicineName,
+                style: _getTextStyle(fontSize: 10),
+              ),
+            ),
+            pw.Expanded(
+              flex: 1,
+              child: pw.Text(
+                '${item.quantity}',
+                textAlign: pw.TextAlign.center,
+                style: _getTextStyle(fontSize: 10),
+              ),
+            ),
+            pw.Expanded(
+              flex: 2,
+              child: pw.Text(
+                'UGX ${item.unitPrice.toStringAsFixed(0)}',
+                textAlign: pw.TextAlign.right,
+                style: _getTextStyle(fontSize: 10),
+              ),
+            ),
+            pw.Expanded(
+              flex: 2,
+              child: pw.Text(
+                'UGX ${item.totalPrice.toStringAsFixed(0)}',
+                textAlign: pw.TextAlign.right,
+                style: _getTextStyle(fontSize: 10, bold: true),
+              ),
+            ),
+          ],
+        ),
+      )),
+      
+      pw.Divider(),
+      pw.SizedBox(height: 10),
+      
+      // Summary
+      pw.Container(
+        margin: const pw.EdgeInsets.only(top: 10),
+        child: pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.end,
+          children: [
             pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.end,
               children: [
-                pw.Text('👤 Customer:', style: _getTextStyle(fontSize: 10, bold: true)),
-                pw.Text(saleGroup.customerName!, style: _getTextStyle(fontSize: 10)),
+                pw.Row(
+                  children: [
+                    pw.Text('Subtotal: ', style: _getTextStyle(fontSize: 12)),
+                    pw.Text(
+                      'UGX ${saleGroup.totalAmount.toStringAsFixed(0)}',
+                      style: _getTextStyle(fontSize: 12, bold: true),
+                    ),
+                  ],
+                ),
+                pw.SizedBox(height: 4),
+                pw.Row(
+                  children: [
+                    pw.Text('Tax (0%): ', style: _getTextStyle(fontSize: 11)),
+                    pw.Text('UGX 0', style: _getTextStyle(fontSize: 11)),
+                  ],
+                ),
+                pw.SizedBox(height: 4),
+                pw.Row(
+                  children: [
+                    pw.Text('Discount: ', style: _getTextStyle(fontSize: 11)),
+                    pw.Text('UGX 0', style: _getTextStyle(fontSize: 11)),
+                  ],
+                ),
+                pw.SizedBox(height: 8),
+                pw.Container(width: 250, height: 1, color: PdfColors.grey400),
+                pw.SizedBox(height: 8),
+                pw.Row(
+                  children: [
+                    pw.Text(
+                      'TOTAL: ',
+                      style: _getTextStyle(fontSize: 16, bold: true),
+                    ),
+                    pw.Text(
+                      'UGX ${saleGroup.totalAmount.toStringAsFixed(0)}',
+                      style: _getTextStyle(fontSize: 16, bold: true, color: primaryColor),
+                    ),
+                  ],
+                ),
               ],
             ),
-        ],
+          ],
+        ),
       ),
-    ),
-    
-    // Payment Method
-    pw.Container(
-      margin: const pw.EdgeInsets.only(bottom: 15),
-      child: pw.Row(
-        children: [
-          pw.Text('Payment Method: ', style: _getTextStyle(fontSize: 10, bold: true)),
-          pw.Text(
-            saleGroup.paymentMethod ?? 'Cash',
-            style: _getTextStyle(fontSize: 10),
-          ),
-        ],
+      
+      pw.SizedBox(height: 20),
+      
+      // Medicine Count Summary
+      pw.Container(
+        padding: const pw.EdgeInsets.all(10),
+        decoration: pw.BoxDecoration(
+          color: PdfColors.grey100,
+          borderRadius: pw.BorderRadius.circular(5),
+        ),
+        child: pw.Row(
+          mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
+          children: [
+            pw.Column(
+              children: [
+                pw.Text(
+                  '${saleGroup.medicineCount}',
+                  style: _getTextStyle(fontSize: 16, bold: true, color: primaryColor),
+                ),
+                pw.Text('Medicine Types', style: _getTextStyle(fontSize: 10)),
+              ],
+            ),
+            pw.Container(width: 1, height: 30, color: PdfColors.grey300),
+            pw.Column(
+              children: [
+                pw.Text(
+                  '${saleGroup.totalItems}',
+                  style: _getTextStyle(fontSize: 16, bold: true, color: primaryColor),
+                ),
+                pw.Text('Total Units', style: _getTextStyle(fontSize: 10)),
+              ],
+            ),
+          ],
+        ),
       ),
-    ),
-    
-    pw.Divider(),
-    pw.SizedBox(height: 10),
-    
-    // Items Header
-    pw.Container(
-      padding: const pw.EdgeInsets.all(8),
-      decoration: pw.BoxDecoration(
-        color: PdfColors.grey300,
-        borderRadius: pw.BorderRadius.circular(5),
-      ),
-      child: pw.Row(
-        children: [
-          pw.Expanded(
-            flex: 4,
-            child: pw.Text(
-              'Medicine',
-              style: _getTextStyle(fontSize: 11, bold: true),
-            ),
-          ),
-          pw.Expanded(
-            flex: 1,
-            child: pw.Text(
-              'Qty',
-              textAlign: pw.TextAlign.center,
-              style: _getTextStyle(fontSize: 11, bold: true),
-            ),
-          ),
-          pw.Expanded(
-            flex: 2,
-            child: pw.Text(
-              'Price',
-              textAlign: pw.TextAlign.right,
-              style: _getTextStyle(fontSize: 11, bold: true),
-            ),
-          ),
-          pw.Expanded(
-            flex: 2,
-            child: pw.Text(
-              'Total',
-              textAlign: pw.TextAlign.right,
-              style: _getTextStyle(fontSize: 11, bold: true),
-            ),
-          ),
-        ],
-      ),
-    ),
-    
-    pw.SizedBox(height: 5),
-    
-    // Items List
-    ...saleGroup.items.map((item) => pw.Padding(
-      padding: const pw.EdgeInsets.symmetric(vertical: 4),
-      child: pw.Row(
-        children: [
-          pw.Expanded(
-            flex: 4,
-            child: pw.Text(
-              item.medicineName,
-              style: _getTextStyle(fontSize: 10),
-            ),
-          ),
-          pw.Expanded(
-            flex: 1,
-            child: pw.Text(
-              '${item.quantity}',
-              textAlign: pw.TextAlign.center,
-              style: _getTextStyle(fontSize: 10),
-            ),
-          ),
-          pw.Expanded(
-            flex: 2,
-            child: pw.Text(
-              'UGX ${item.unitPrice.toStringAsFixed(0)}',
-              textAlign: pw.TextAlign.right,
-              style: _getTextStyle(fontSize: 10),
-            ),
-          ),
-          pw.Expanded(
-            flex: 2,
-            child: pw.Text(
-              'UGX ${item.totalPrice.toStringAsFixed(0)}',
-              textAlign: pw.TextAlign.right,
-              style: _getTextStyle(fontSize: 10, bold: true),
-            ),
-          ),
-        ],
-      ),
-    )),
-    
-    pw.Divider(),
-    pw.SizedBox(height: 10),
-    
-    // Summary
-    pw.Container(
-      margin: const pw.EdgeInsets.only(top: 10),
-      child: pw.Row(
-        mainAxisAlignment: pw.MainAxisAlignment.end,
-        children: [
-          pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.end,
-            children: [
-              pw.Row(
-                children: [
-                  pw.Text('Subtotal: ', style: _getTextStyle(fontSize: 12)),
-                  pw.Text(
-                    'UGX ${saleGroup.totalAmount.toStringAsFixed(0)}',
-                    style: _getTextStyle(fontSize: 12, bold: true),
-                  ),
-                ],
-              ),
-              pw.SizedBox(height: 4),
-              pw.Row(
-                children: [
-                  pw.Text('Tax (0%): ', style: _getTextStyle(fontSize: 11)),
-                  pw.Text('UGX 0', style: _getTextStyle(fontSize: 11)),
-                ],
-              ),
-              pw.SizedBox(height: 4),
-              pw.Row(
-                children: [
-                  pw.Text('Discount: ', style: _getTextStyle(fontSize: 11)),
-                  pw.Text('UGX 0', style: _getTextStyle(fontSize: 11)),
-                ],
-              ),
-              pw.SizedBox(height: 8),
-              pw.Container(width: 250, height: 1, color: PdfColors.grey400), // Fixed: Changed from Divider
-              pw.SizedBox(height: 8),
-              pw.Row(
-                children: [
-                  pw.Text(
-                    'TOTAL: ',
-                    style: _getTextStyle(fontSize: 16, bold: true),
-                  ),
-                  pw.Text(
-                    'UGX ${saleGroup.totalAmount.toStringAsFixed(0)}',
-                    style: _getTextStyle(fontSize: 16, bold: true, color: primaryColor),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ],
-      ),
-    ),
-    
-    pw.SizedBox(height: 20),
-    
-    // Medicine Count Summary
-    pw.Container(
-      padding: const pw.EdgeInsets.all(10),
-      decoration: pw.BoxDecoration(
-        color: PdfColors.grey100,
-        borderRadius: pw.BorderRadius.circular(5),
-      ),
-      child: pw.Row(
-        mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
-        children: [
-          pw.Column(
-            children: [
-              pw.Text(
-                '${saleGroup.medicineCount}',
-                style: _getTextStyle(fontSize: 16, bold: true, color: primaryColor),
-              ),
-              pw.Text('Medicine Types', style: _getTextStyle(fontSize: 10)),
-            ],
-          ),
-          pw.Container(width: 1, height: 30, color: PdfColors.grey300),
-          pw.Column(
-            children: [
-              pw.Text(
-                '${saleGroup.totalItems}',
-                style: _getTextStyle(fontSize: 16, bold: true, color: primaryColor),
-              ),
-              pw.Text('Total Units', style: _getTextStyle(fontSize: 10)),
-            ],
-          ),
-        ],
-      ),
-    ),
-  ];
-}
+    ];
+  }
 
   static String _formatDate(DateTime date) {
     return '${date.day}/${date.month}/${date.year}';
@@ -416,7 +411,7 @@ class PdfService {
   }
 
   // ============================================================
-  // REPORT PDF GENERATION (Your existing methods)
+  // REPORT PDF GENERATION
   // ============================================================
 
   static Future<void> generateAndDownload(String title, pw.Widget content) async {
@@ -491,76 +486,90 @@ class PdfService {
     );
   }
 
-  static pw.Widget buildSalesReportContent(Map<String, dynamic> report, List<dynamic> salesData) {
-    final summary = report['summary'] ?? {};
-    final limitedSales = salesData.length > 50 ? salesData.sublist(0, 50) : salesData;
+  static pw.Widget buildSalesReportContent(Map<String, dynamic> report, List<Map<String, dynamic>> salesData) {
+  final summary = report['summary'] ?? {};
+  
+  // Prepare sales data for table
+  final List<List<String>> salesRows = [];
+  final displaySales = salesData.length > 50 ? salesData.sublist(0, 50) : salesData;
+  
+  for (var sale in displaySales) {
+    final saleDate = sale['sale_date'];
+    final dateString = saleDate is DateTime 
+        ? DateFormat('yyyy-MM-dd').format(saleDate)
+        : saleDate?.toString().split('T')[0] ?? DateFormat('yyyy-MM-dd').format(DateTime.now());
     
-    final List<List<String>> salesRows = [];
-    for (var sale in limitedSales) {
-      salesRows.add([
-        sale['sale_date']?.split('T')[0] ?? DateFormat('yyyy-MM-dd').format(DateTime.now()),
-        sale['customer_name']?.toString() ?? 'Walk-in',
-        '${sale['items']?.length ?? 0} items',
-        'UGX ${(sale['total_price'] ?? 0).toStringAsFixed(0)}',
-      ]);
-    }
-    
-    return pw.Column(
-      crossAxisAlignment: pw.CrossAxisAlignment.start,
-      children: [
-        pw.Container(
-          margin: const pw.EdgeInsets.only(bottom: 20),
-          padding: const pw.EdgeInsets.all(10),
-          decoration: pw.BoxDecoration(
-            color: PdfColors.grey100,
-            borderRadius: pw.BorderRadius.circular(5),
-          ),
-          child: pw.Row(
-            children: [
-              pw.Text('📅', style: _getTextStyle(fontSize: 16)),
-              pw.SizedBox(width: 10),
-              pw.Text(
-                'Period: ${report['period']['start_date'] ?? 'N/A'} - ${report['period']['end_date'] ?? 'N/A'}',
-                style: _getTextStyle(fontSize: 12),
-              ),
-            ],
-          ),
+    salesRows.add([
+      dateString,
+      sale['customer_name']?.toString() ?? 'Walk-in',
+      sale['medicine_name']?.toString() ?? '',
+      '${sale['quantity'] ?? 0}',
+      'UGX ${(sale['total_price'] ?? 0).toStringAsFixed(0)}',
+      sale['type']?.toString() ?? 'Cash',
+    ]);
+  }
+  
+  return pw.Column(
+    crossAxisAlignment: pw.CrossAxisAlignment.start,
+    children: [
+      // Period Info
+      pw.Container(
+        margin: const pw.EdgeInsets.only(bottom: 20),
+        padding: const pw.EdgeInsets.all(10),
+        decoration: pw.BoxDecoration(
+          color: PdfColors.grey100,
+          borderRadius: pw.BorderRadius.circular(5),
         ),
-        
-        pw.Container(
-          margin: const pw.EdgeInsets.only(bottom: 20),
-          child: pw.Row(
-            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-            children: [
-              _buildSummaryBox('Total Revenue', 'UGX ${(summary['total_revenue'] ?? 0).toStringAsFixed(0)}', PdfColors.green700),
-              _buildSummaryBox('Transactions', '${summary['total_transactions'] ?? 0}', PdfColors.blue700),
-              _buildSummaryBox('Average', 'UGX ${(summary['average_transaction'] ?? 0).toStringAsFixed(0)}', PdfColors.orange700),
-              _buildSummaryBox('Max Sale', 'UGX ${(summary['max_transaction'] ?? 0).toStringAsFixed(0)}', PdfColors.purple700),
-            ],
-          ),
+        child: pw.Row(
+          children: [
+            pw.Text('Period:', style: _getTextStyle(fontSize: 12, bold: true)),
+            pw.SizedBox(width: 10),
+            pw.Text(
+              '${report['period']['start_date'] ?? 'N/A'} - ${report['period']['end_date'] ?? 'N/A'}',
+              style: _getTextStyle(fontSize: 12),
+            ),
+          ],
         ),
-        
-        pw.SizedBox(height: 20),
-        
+      ),
+      
+      // Summary Boxes
+      pw.Container(
+        margin: const pw.EdgeInsets.only(bottom: 20),
+        child: pw.Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            _buildSummaryBox('Total Revenue', 'UGX ${(summary['total_revenue'] ?? 0).toStringAsFixed(0)}', PdfColors.green700),
+            _buildSummaryBox('Cash Sales', 'UGX ${(report['cash_sales']?['total'] ?? 0).toStringAsFixed(0)}', PdfColors.blue700),
+            _buildSummaryBox('Credit Sales', 'UGX ${(report['credit_sales']?['total'] ?? 0).toStringAsFixed(0)}', PdfColors.orange700),
+            _buildSummaryBox('Transactions', '${summary['total_transactions'] ?? 0}', PdfColors.purple700),
+          ],
+        ),
+      ),
+      
+      pw.SizedBox(height: 20),
+      
+      // Sales Transactions Table
+      if (salesRows.isNotEmpty) ...[
         pw.Text('Sales Transactions', style: _getTextStyle(fontSize: 16, bold: true)),
         pw.SizedBox(height: 10),
-        
         _buildTable(
-          headers: ['Date', 'Customer', 'Items', 'Total'],
+          headers: ['Date', 'Customer', 'Medicine', 'Qty', 'Total', 'Type'],
           rows: salesRows,
         ),
-        
-        if (salesData.length > 50)
-          pw.Padding(
-            padding: const pw.EdgeInsets.only(top: 10),
-            child: pw.Text(
-              'Note: Showing last 50 transactions only',
-              style: _getTextStyle(fontSize: 10, color: PdfColors.grey600),
-            ),
-          ),
       ],
-    );
-  }
+      
+      if (salesData.length > 50)
+        pw.Padding(
+          padding: const pw.EdgeInsets.only(top: 10),
+          child: pw.Text(
+            'Note: Showing last 50 transactions only',
+            style: _getTextStyle(fontSize: 10, color: PdfColors.grey600),
+          ),
+        ),
+    ],
+  );
+}
 
   static pw.Widget buildInventoryReportContent(Map<String, dynamic> report) {
     final summary = report['summary'] ?? {};
@@ -681,7 +690,7 @@ class PdfService {
           ),
           child: pw.Row(
             children: [
-              pw.Text('📅', style: _getTextStyle(fontSize: 16)),
+              pw.Icon(pw.IconData(0xe8df), size: 16), // Calendar icon
               pw.SizedBox(width: 10),
               pw.Text(
                 'Period: ${report['period']['start_date'] ?? 'N/A'} - ${report['period']['end_date'] ?? 'N/A'}',

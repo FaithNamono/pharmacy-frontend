@@ -1,6 +1,6 @@
+// lib/screens/settings/about_screen.dart (Simplified Version)
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../utils/constants.dart';
 
 class AboutScreen extends StatelessWidget {
@@ -11,6 +11,8 @@ class AboutScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('About'),
+        backgroundColor: AppColors.primaryGreen,
+        foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -18,67 +20,32 @@ class AboutScreen extends StatelessWidget {
           children: [
             // App Logo
             Container(
-              width: 120,
-              height: 120,
+              width: 100,
+              height: 100,
               decoration: BoxDecoration(
                 color: AppColors.veryLightGreen,
                 shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: AppColors.primaryGreen.withOpacity(0.3),
-                    blurRadius: 15,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(60),
-                child: Image.asset(
-                  'assets/images/logo.png',
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      decoration: const BoxDecoration(
-                        color: AppColors.primaryGreen,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.local_pharmacy,
-                        color: Colors.white,
-                        size: 60,
-                      ),
-                    );
-                  },
-                ),
+              child: const Icon(
+                Icons.local_pharmacy,
+                size: 50,
+                color: AppColors.primaryGreen,
               ),
             ),
-
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
 
             // App Name
             Text(
-              AppStrings.appName,
+              'Dervin Pharmacy',
               style: GoogleFonts.poppins(
-                fontSize: 28,
+                fontSize: 24,
                 fontWeight: FontWeight.bold,
                 color: AppColors.primaryGreen,
               ),
             ),
-
             const SizedBox(height: 8),
-
-            Text(
-              AppStrings.fullName,
-              style: GoogleFonts.poppins(
-                fontSize: 16,
-                color: Colors.grey.shade600,
-              ),
-            ),
-
-            const SizedBox(height: 8),
-
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               decoration: BoxDecoration(
                 color: AppColors.primaryGreen.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(20),
@@ -91,34 +58,6 @@ class AboutScreen extends StatelessWidget {
                 ),
               ),
             ),
-
-            const SizedBox(height: 32),
-
-            // Info Cards
-            _buildInfoCard(
-              'Developer',
-              'Namonu Faith',
-              Icons.code,
-            ),
-
-            _buildInfoCard(
-              'Contact',
-              'faith@ctpharmacy.com',
-              Icons.email,
-            ),
-
-            _buildInfoCard(
-              'Website',
-              'www.ctpharmacy.com',
-              Icons.language,
-              onTap: () async {
-                final url = Uri.parse('https://www.ctpharmacy.com');
-                if (await canLaunchUrl(url)) {
-                  await launchUrl(url);
-                }
-              },
-            ),
-
             const SizedBox(height: 24),
 
             // Description
@@ -129,27 +68,23 @@ class AboutScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'About the App',
+                      'About',
                       style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
                         color: AppColors.primaryGreen,
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     Text(
-                      'CT Pharmacy Management System is a comprehensive solution designed to streamline pharmacy operations. It helps manage medicines, track inventory, record sales, and generate reports efficiently.',
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        height: 1.6,
-                      ),
+                      'Pharmacy Management System for managing medicines, sales, inventory, and staff.',
+                      style: GoogleFonts.poppins(fontSize: 14),
                     ),
                   ],
                 ),
               ),
             ),
-
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
 
             // Features
             Card(
@@ -159,34 +94,61 @@ class AboutScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Key Features',
+                      'Features',
                       style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
                         color: AppColors.primaryGreen,
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
                     _buildFeatureItem(Icons.medical_services, 'Medicine Management'),
-                    _buildFeatureItem(Icons.inventory, 'Stock Tracking'),
                     _buildFeatureItem(Icons.shopping_cart, 'Sales Recording'),
-                    _buildFeatureItem(Icons.assessment, 'Reports & Analytics'),
+                    _buildFeatureItem(Icons.assessment, 'Reports'),
                     _buildFeatureItem(Icons.people, 'Staff Management'),
-                    _buildFeatureItem(Icons.notifications, 'Low Stock Alerts'),
+                    _buildFeatureItem(Icons.backup, 'Backup & Restore'),
                   ],
                 ),
               ),
             ),
+            const SizedBox(height: 16),
 
+            // Support
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Support',
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primaryGreen,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    ListTile(
+                      leading: const Icon(Icons.email, color: AppColors.primaryGreen),
+                      title: const Text('support@dervinpharmacy.com'),
+                      dense: true,
+                    ),
+                    ListTile(
+                      leading: const Icon(Icons.phone, color: AppColors.primaryGreen),
+                      title: const Text('+256 700 123 456'),
+                      dense: true,
+                    ),
+                  ],
+                ),
+              ),
+            ),
             const SizedBox(height: 24),
 
             // Copyright
             Text(
-              '© 2026 CT Pharmacy. All rights reserved.',
-              style: GoogleFonts.poppins(
-                fontSize: 12,
-                color: Colors.grey.shade500,
-              ),
+              '© 2026 Dervin Pharmacy. All rights reserved.',
+              style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey),
             ),
           ],
         ),
@@ -194,36 +156,14 @@ class AboutScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildInfoCard(String label, String value, IconData icon, {VoidCallback? onTap}) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        leading: Icon(icon, color: AppColors.primaryGreen),
-        title: Text(
-          label,
-          style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade600),
-        ),
-        subtitle: Text(
-          value,
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
-        ),
-        trailing: onTap != null ? const Icon(Icons.arrow_forward_ios, size: 16) : null,
-        onTap: onTap,
-      ),
-    );
-  }
-
   Widget _buildFeatureItem(IconData icon, String text) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: 6),
       child: Row(
         children: [
-          Icon(icon, size: 18, color: AppColors.primaryGreen),
-          const SizedBox(width: 12),
-          Text(
-            text,
-            style: GoogleFonts.poppins(fontSize: 14),
-          ),
+          Icon(icon, size: 16, color: AppColors.primaryGreen),
+          const SizedBox(width: 8),
+          Text(text, style: GoogleFonts.poppins(fontSize: 13)),
         ],
       ),
     );

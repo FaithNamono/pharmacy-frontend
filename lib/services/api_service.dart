@@ -212,6 +212,18 @@ class ApiService {
   Future<Map<String, dynamic>> getCurrentUser() async {
     return await get('/api/auth/current-user/');
   }
+  Future<Map<String, dynamic>> updatePassword(
+  int userId,
+  String currentPassword,
+  String newPassword,
+) async {
+  // Use the correct auth endpoint
+  return await post('/api/auth/change-password/', {
+    'current_password': currentPassword,
+    'new_password': newPassword,
+    'confirm_password': newPassword,
+  });
+}
 
   // =====================================================
   // MEDICINES

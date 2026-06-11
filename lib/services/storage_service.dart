@@ -1,3 +1,5 @@
+// lib/services/storage_service.dart
+
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/user.dart';
 
@@ -37,11 +39,28 @@ class StorageService {
   Future<void> clearAll() async {
     await _prefs.clear();
   }
-  Future<void> saveThemeMode(String themeIndex) async {
-  await _prefs.setString('theme_mode', themeIndex);
-}
 
-Future<String?> getThemeMode() async {
-  return _prefs.getString('theme_mode');
-}
+  Future<void> saveThemeMode(String themeIndex) async {
+    await _prefs.setString('theme_mode', themeIndex);
+  }
+
+  Future<String?> getThemeMode() async {
+    return _prefs.getString('theme_mode');
+  }
+
+  Future<void> saveLanguage(String language) async {
+    await _prefs.setString('language', language);
+  }
+
+  Future<String?> getLanguage() async {
+    return _prefs.getString('language');
+  }
+
+  Future<void> saveAutoBackup(bool enabled) async {
+    await _prefs.setBool('auto_backup', enabled);
+  }
+
+  Future<bool?> getAutoBackup() async {
+    return _prefs.getBool('auto_backup');
+  }
 }

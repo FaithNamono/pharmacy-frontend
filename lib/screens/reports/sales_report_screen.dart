@@ -1,4 +1,4 @@
-// lib/screens/reports/sales_report_screen.dart - Safe version with null checks
+// lib/screens/reports/sales_report_screen.dart - Complete fixed version
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -65,11 +65,13 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
     try {
       final saleProvider = Provider.of<SaleProvider>(context, listen: false);
       final creditProvider = Provider.of<CreditProvider>(context, listen: false);
+      final reportProvider = Provider.of<ReportProvider>(context, listen: false);
 
-      // Load data
+      // Load all data including sales report for PDF
       await Future.wait([
         saleProvider.loadSales(refresh: true),
         creditProvider.loadCreditSales(),
+        reportProvider.loadSalesReport(startDate: _startDate, endDate: _endDate),
       ]);
 
       final startDateTime = _startOfDay(_startDate);
@@ -178,17 +180,74 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
   }
 
   Future<void> _downloadPDF() async {
-    final reportProvider = Provider.of<ReportProvider>(context, listen: false);
-    final report = reportProvider.salesReport;
+    try {
+      // Show loading indicator
+      setState(() {
+        _isLoading = true;
+      });
+      
+      // Get the report provider and load fresh data
+      final reportProvider = Provider.of<ReportProvider>(context, listen: false);
+      
+      // Load the sales report with current date range
+      await reportProvider.loadSalesReport(startDate: _startDate, endDate: _endDate);
+      
+      final report = reportProvider.salesReport;
+      
+      print('📊 PDF Download - Report: $report');
+      print('📊 Cash Sales History length: ${_cashSalesHistory.length}');
 
-    if (report != null) {
-      final content = PdfService.buildSalesReportContent(report, _cashSalesHistory);
-      await PdfService.generateAndDownload('Sales Report', content);
+      if (report == null) {
+        print('❌ Report is null');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No report data available. Please refresh and try again.'), backgroundColor: Colors.red),
+        );
+        setState(() {
+          _isLoading = false;
+        });
+        return;
+      }
+
+      // Prepare the sales data for PDF
+      List<Map<String, dynamic>> salesData = [];
+      
+      // Add cash sales
+      for (var sale in _cashSalesHistory) {
+        salesData.add({
+          'sale_date': sale['sale_date'],
+          'customer_name': sale['customer_name'] ?? 'Walk-in',
+          'medicine_name': sale['medicine_name'] ?? '',
+          'quantity': sale['quantity'] ?? 0,
+          'total_price': sale['total_price'] ?? 0,
+          'type': 'Cash',
+        });
+      }
+
+      print('📊 Prepared ${salesData.length} sales for PDF');
+
+      // Build the PDF content using the existing method
+      final content = PdfService.buildSalesReportContent(report, salesData);
+      
+      // Generate and download
+      await PdfService.generateAndDownload('Sales_Report_${DateFormat('yyyyMMdd').format(DateTime.now())}', content);
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Sales report downloaded successfully')),
+          const SnackBar(content: Text('✅ Sales report downloaded successfully')),
         );
+      }
+    } catch (e) {
+      print('❌ Error downloading PDF: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error downloading report: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
       }
     }
   }

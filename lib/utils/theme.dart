@@ -6,6 +6,12 @@ class AppTheme {
   static ThemeData lightTheme = ThemeData(
     brightness: Brightness.light,
     primaryColor: AppColors.primaryGreen,
+    // Using colorScheme ensures modern widgets pull the new green as their primary look
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: AppColors.primaryGreen,
+      primary: AppColors.primaryGreen,
+      brightness: Brightness.light,
+    ),
     scaffoldBackgroundColor: AppColors.backgroundLight,
     fontFamily: GoogleFonts.poppins().fontFamily,
     appBarTheme: const AppBarTheme(
@@ -14,7 +20,7 @@ class AppTheme {
       backgroundColor: Colors.white,
       foregroundColor: AppColors.darkText,
     ),
-    cardTheme: CardThemeData(  // Changed from CardTheme to CardThemeData
+    cardTheme: CardThemeData(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       color: Colors.white,
@@ -25,6 +31,11 @@ class AppTheme {
   static ThemeData darkTheme = ThemeData(
     brightness: Brightness.dark,
     primaryColor: AppColors.primaryGreen,
+    colorScheme: ColorScheme.fromSeed(
+      seedColor: AppColors.primaryGreen,
+      primary: AppColors.primaryGreen,
+      brightness: Brightness.dark,
+    ),
     scaffoldBackgroundColor: const Color(0xFF121212),
     fontFamily: GoogleFonts.poppins().fontFamily,
     appBarTheme: AppBarTheme(
@@ -39,7 +50,7 @@ class AppTheme {
       ),
       iconTheme: const IconThemeData(color: Colors.white),
     ),
-    cardTheme: CardThemeData(  // Changed from CardTheme to CardThemeData
+    cardTheme: CardThemeData(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       color: const Color(0xFF2C2C2C),

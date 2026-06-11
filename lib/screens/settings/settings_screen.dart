@@ -1,9 +1,10 @@
+// lib/screens/settings/settings_screen.dart
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/settings_provider.dart';
+import '../../providers/backup_provider.dart';
 import '../../models/theme_model.dart';
 import '../../widgets/custom_button.dart';
 import '../../utils/constants.dart';
@@ -17,137 +18,104 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final backupProvider = Provider.of<BackupProvider>(context, listen: false);
+      backupProvider.checkAutoBackup();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final user = authProvider.currentUser;
-    final isAdmin = user?.isAdmin ?? false;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Settings'),
+        backgroundColor: AppColors.primaryGreen,
+        foregroundColor: Colors.white,
+        elevation: 0,
       ),
-      body: Consumer<SettingsProvider>(
-        builder: (context, settingsProvider, child) {
+      body: Consumer2<SettingsProvider, BackupProvider>(
+        builder: (context, settingsProvider, backupProvider, child) {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              // Profile Section - Visible to all users
-              _buildSectionHeader('Profile'),
+              // Profile Section
+              _buildSectionHeader('Profile Information'),
               Card(
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: AppColors.veryLightGreen,
-                    child: Text(
-                      user?.initials ?? 'U',
-                      style: GoogleFonts.poppins(
-                        color: AppColors.primaryGreen,
-                        fontWeight: FontWeight.bold,
+                elevation: 2,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      CircleAvatar(
+                        radius: 40,
+                        backgroundColor: AppColors.veryLightGreen,
+                        child: Text(
+                          user?.initials ?? 'U',
+                          style: GoogleFonts.poppins(
+                            fontSize: 24,
+                            color: AppColors.primaryGreen,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: 12),
+                      Text(
+                        user?.fullName ?? 'User',
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 18,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '@${user?.username ?? ''}',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        user?.email ?? '',
+                        style: GoogleFonts.poppins(
+                          fontSize: 13,
+                          color: Colors.grey[600],
+                        ),
+                      ),
+                      if (user?.phone != null && user!.phone!.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            user.phone!,
+                            style: GoogleFonts.poppins(
+                              fontSize: 13,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-                  title: Text(
-                    user?.fullName ?? 'User',
-                    style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-                  ),
-                  subtitle: Text(
-                    user?.email ?? '',
-                    style: GoogleFonts.poppins(fontSize: 12),
-                  ),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                  onTap: () {
-                    Navigator.pushNamed(context, '/profile');
-                  },
                 ),
               ),
 
               const SizedBox(height: 24),
 
-              // Account Settings - Visible to all users (self-management)
-              _buildSectionHeader('Account Settings'),
-              ListTile(
-                leading: const Icon(Icons.person_outline),
-                title: Text(
-                  'Change Username',
-                  style: GoogleFonts.poppins(),
-                ),
-                subtitle: Text(
-                  'Current: ${user?.username}',
-                  style: GoogleFonts.poppins(fontSize: 12),
-                ),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () {
-                  _showChangeUsernameDialog(context);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.email_outlined),
-                title: Text(
-                  'Change Email',
-                  style: GoogleFonts.poppins(),
-                ),
-                subtitle: Text(
-                  'Current: ${user?.email}',
-                  style: GoogleFonts.poppins(fontSize: 12),
-                ),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () {
-                  _showChangeEmailDialog(context);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.phone_outlined),
-                title: Text(
-                  'Change Phone',
-                  style: GoogleFonts.poppins(),
-                ),
-                subtitle: Text(
-                  user?.phone?.isNotEmpty == true 
-                      ? 'Current: ${user?.phone}' 
-                      : 'Not set',
-                  style: GoogleFonts.poppins(fontSize: 12),
-                ),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () {
-                  _showChangePhoneDialog(context);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.lock_outline),
-                title: Text(
-                  'Change Password',
-                  style: GoogleFonts.poppins(),
-                ),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () {
-                  Navigator.pushNamed(context, '/change-password');
-                },
+              // Account Security
+              _buildSectionHeader('Account Security'),
+              _buildAccountTile(
+                icon: Icons.lock_outline,
+                title: 'Change Password',
+                subtitle: 'Last changed: ${user?.lastPasswordChange ?? 'Never'}',
+                onTap: () => _showChangePasswordDialog(context, authProvider),
               ),
 
               const SizedBox(height: 16),
-
-              // Staff Management - Admin Only
-              if (isAdmin) ...[
-                _buildSectionHeader('Staff Management'),
-                ListTile(
-                  leading: const Icon(Icons.people_outline, color: AppColors.primaryGreen),
-                  title: Text(
-                    'Manage Staff',
-                    style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primaryGreen,
-                    ),
-                  ),
-                  subtitle: Text(
-                    'Add, edit, or remove staff members',
-                    style: GoogleFonts.poppins(fontSize: 12),
-                  ),
-                  trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                  onTap: () {
-                    Navigator.pushNamed(context, '/staff');
-                  },
-                ),
-                const SizedBox(height: 16),
-              ],
 
               // Appearance Section
               _buildSectionHeader('Appearance'),
@@ -155,131 +123,136 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
               const SizedBox(height: 16),
 
-              // Language Section
-              _buildSectionHeader('Language & Region'),
-              ListTile(
-                leading: const Icon(Icons.language),
-                title: Text(
-                  'Language',
-                  style: GoogleFonts.poppins(),
-                ),
-                subtitle: Text(
-                  settingsProvider.language,
-                  style: GoogleFonts.poppins(fontSize: 12),
-                ),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () {
-                  _showLanguageDialog(context, settingsProvider);
-                },
-              ),
-
-              const SizedBox(height: 16),
-
               // Data & Backup
               _buildSectionHeader('Data & Backup'),
-              _buildSwitchTile(
-                'Auto Backup',
-                'Automatically backup your data',
-                Icons.backup_outlined,
-                settingsProvider.autoBackup,
-                settingsProvider.toggleAutoBackup,
-              ),
-              ListTile(
-                leading: const Icon(Icons.backup),
-                title: Text(
-                  'Backup Now',
-                  style: GoogleFonts.poppins(),
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: SwitchListTile(
+                  secondary: const Icon(Icons.backup_outlined),
+                  title: Text(
+                    'Auto Backup',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+                  ),
+                  subtitle: Text(
+                    backupProvider.autoBackupEnabled 
+                        ? 'Last backup: ${backupProvider.lastBackupTime != null ? _formatDate(DateTime.parse(backupProvider.lastBackupTime!)) : 'Never'}\nNext backup: ${backupProvider.nextBackupTime}'
+                        : 'Enable automatic daily backups at 2 AM',
+                    style: GoogleFonts.poppins(fontSize: 11),
+                  ),
+                  value: backupProvider.autoBackupEnabled,
+                  onChanged: (value) async {
+                    await backupProvider.toggleAutoBackup(value);
+                    if (mounted && value) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Auto-backup enabled. Backups will run daily at 2 AM'),
+                          backgroundColor: Colors.green,
+                          duration: Duration(seconds: 3),
+                        ),
+                      );
+                    }
+                  },
+                  activeColor: AppColors.primaryGreen,
                 ),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () {
-                  _showBackupDialog(context);
-                },
               ),
-              ListTile(
-                leading: const Icon(Icons.restore),
-                title: Text(
-                  'Restore Data',
-                  style: GoogleFonts.poppins(),
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: ListTile(
+                  leading: const Icon(Icons.backup, color: AppColors.primaryGreen),
+                  title: Text(
+                    'Backup Now',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+                  ),
+                  subtitle: Text(
+                    backupProvider.lastBackupInfo,
+                    style: GoogleFonts.poppins(fontSize: 11),
+                  ),
+                  trailing: backupProvider.isBackingUp
+                      ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: backupProvider.isBackingUp ? null : () => _performBackup(context, backupProvider),
                 ),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () {
-                  _showRestoreDialog(context);
-                },
               ),
+              Card(
+                elevation: 2,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: ListTile(
+                  leading: const Icon(Icons.restore, color: Colors.orange),
+                  title: Text(
+                    'Restore Data',
+                    style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+                  ),
+                  subtitle: Text(
+                    'Restore from previous backup (${backupProvider.backupHistory.length} available)',
+                    style: GoogleFonts.poppins(fontSize: 11),
+                  ),
+                  trailing: backupProvider.isRestoring
+                      ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.arrow_forward_ios, size: 16),
+                  onTap: backupProvider.isRestoring ? null : () => _showRestoreDialog(context, backupProvider),
+                ),
+              ),
+              if (backupProvider.backupLocation.isNotEmpty && backupProvider.backupLocation != 'Backup not available on web')
+                Padding(
+                  padding: const EdgeInsets.only(left: 16, top: 8),
+                  child: Row(
+                    children: [
+                      Icon(Icons.folder_open, size: 14, color: Colors.grey[600]),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Backup Location: ${backupProvider.backupLocation}',
+                          style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey[600]),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
 
               const SizedBox(height: 16),
 
-              // About Section with Complete Details
+              // About Section
               _buildSectionHeader('About'),
-              ListTile(
-                leading: const Icon(Icons.info_outline),
-                title: Text(
-                  'App Version',
-                  style: GoogleFonts.poppins(),
-                ),
-                subtitle: const Text('1.0.0 (Build 2024.03.11)'),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () {
-                  _showVersionDialog(context);
-                },
+              _buildAboutTile(
+                icon: Icons.info_outline,
+                title: 'App Information',
+                subtitle: 'Version 1.0.0',
+                onTap: () => _showAppInfoDialog(context),
               ),
-              ListTile(
-                leading: const Icon(Icons.description_outlined),
-                title: Text(
-                  'Terms of Service',
-                  style: GoogleFonts.poppins(),
-                ),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () {
-                  _showTermsDialog(context);
-                },
+              _buildAboutTile(
+                icon: Icons.description_outlined,
+                title: 'Terms of Service',
+                subtitle: 'Read our terms and conditions',
+                onTap: () => _showTermsDialog(context),
               ),
-              ListTile(
-                leading: const Icon(Icons.privacy_tip_outlined),
-                title: Text(
-                  'Privacy Policy',
-                  style: GoogleFonts.poppins(),
-                ),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () {
-                  _showPrivacyDialog(context);
-                },
+              _buildAboutTile(
+                icon: Icons.privacy_tip_outlined,
+                title: 'Privacy Policy',
+                subtitle: 'How we handle your data',
+                onTap: () => _showPrivacyDialog(context),
               ),
-              ListTile(
-                leading: const Icon(Icons.security),
-                title: Text(
-                  'Security & Compliance',
-                  style: GoogleFonts.poppins(),
-                ),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () {
-                  _showSecurityDialog(context);
-                },
+              _buildAboutTile(
+                icon: Icons.security,
+                title: 'Security & Compliance',
+                subtitle: 'Security measures and certifications',
+                onTap: () => _showSecurityDialog(context),
               ),
-              ListTile(
-                leading: const Icon(Icons.support_agent),
-                title: Text(
-                  'Support & Help',
-                  style: GoogleFonts.poppins(),
-                ),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () {
-                  _showSupportDialog(context);
-                },
+              _buildAboutTile(
+                icon: Icons.support_agent,
+                title: 'Support & Help',
+                subtitle: 'Get assistance',
+                onTap: () => _showSupportDialog(context),
               ),
-              ListTile(
-                leading: const Icon(Icons.code),
-                title: Text(
-                  'Open Source Licenses',
-                  style: GoogleFonts.poppins(),
-                ),
-                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-                onTap: () {
-                  _showLicensesDialog(context);
-                },
+              _buildAboutTile(
+                icon: Icons.code,
+                title: 'Open Source Licenses',
+                subtitle: 'Third-party licenses',
+                onTap: () => _showLicensesDialog(context),
               ),
 
-              const SizedBox(height: 16),
+              const SizedBox(height: 24),
 
               // Logout Button
               CustomButton(
@@ -305,9 +278,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
+  Widget _buildAccountTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Card(
+      elevation: 1,
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        leading: Icon(icon, color: AppColors.primaryGreen),
+        title: Text(title, style: GoogleFonts.poppins(fontWeight: FontWeight.w500)),
+        subtitle: Text(subtitle, style: GoogleFonts.poppins(fontSize: 11)),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+        onTap: onTap,
+      ),
+    );
+  }
+
+  Widget _buildAboutTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Card(
+      elevation: 1,
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        leading: Icon(icon, color: AppColors.primaryGreen),
+        title: Text(title, style: GoogleFonts.poppins(fontWeight: FontWeight.w500)),
+        subtitle: Text(subtitle, style: GoogleFonts.poppins(fontSize: 11)),
+        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+        onTap: onTap,
+      ),
+    );
+  }
+
   Widget _buildSectionHeader(String title) {
     return Padding(
-      padding: const EdgeInsets.only(left: 8, bottom: 8),
+      padding: const EdgeInsets.only(left: 8, bottom: 8, top: 8),
       child: Text(
         title,
         style: GoogleFonts.poppins(
@@ -321,222 +334,205 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _buildThemeSelector(SettingsProvider provider) {
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: Column(
-          children: [
-            _buildThemeOption(
-              AppTheme.light,
-              provider.currentTheme == AppTheme.light,
-              provider,
-            ),
-            const Divider(),
-            _buildThemeOption(
-              AppTheme.dark,
-              provider.currentTheme == AppTheme.dark,
-              provider,
-            ),
-            const Divider(),
-            _buildThemeOption(
-              AppTheme.system,
-              provider.currentTheme == AppTheme.system,
-              provider,
-            ),
-          ],
-        ),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Column(
+        children: AppTheme.values.map((theme) {
+          return Column(
+            children: [
+              ListTile(
+                leading: Icon(theme.icon),
+                title: Text(
+                  theme.displayName,
+                  style: GoogleFonts.poppins(),
+                ),
+                trailing: provider.currentTheme == theme
+                    ? const Icon(Icons.check_circle, color: AppColors.primaryGreen)
+                    : null,
+                onTap: () {
+                  provider.setTheme(theme);
+                },
+              ),
+              if (theme != AppTheme.values.last) const Divider(height: 1),
+            ],
+          );
+        }).toList(),
       ),
     );
   }
 
-  Widget _buildThemeOption(AppTheme theme, bool isSelected, SettingsProvider provider) {
-    return ListTile(
-      leading: Icon(theme.icon),
-      title: Text(
-        theme.displayName,
-        style: GoogleFonts.poppins(),
-      ),
-      trailing: isSelected
-          ? const Icon(Icons.check_circle, color: AppColors.primaryGreen)
-          : null,
-      onTap: () {
-        provider.setTheme(theme);
+  // ============================================================
+  // CHANGE PASSWORD DIALOG - WITH EYE ICONS AND WORKING API
+  // ============================================================
+
+  void _showChangePasswordDialog(BuildContext context, AuthProvider authProvider) {
+  final currentPasswordController = TextEditingController();
+  final newPasswordController = TextEditingController();
+  final confirmPasswordController = TextEditingController();
+  
+  bool _obscureCurrent = true;
+  bool _obscureNew = true;
+  bool _obscureConfirm = true;
+  
+  showDialog(
+    context: context,
+    barrierDismissible: false,  // ✅ Prevent dismissing while loading
+    builder: (context) => StatefulBuilder(
+      builder: (context, setState) {
+        return AlertDialog(
+          title: const Text('Change Password'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: currentPasswordController,
+                  decoration: InputDecoration(
+                    labelText: 'Current Password',
+                    border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscureCurrent ? Icons.visibility_off : Icons.visibility,
+                        color: Colors.grey,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscureCurrent = !_obscureCurrent;
+                        });
+                      },
+                    ),
+                  ),
+                  obscureText: _obscureCurrent,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: newPasswordController,
+                  decoration: InputDecoration(
+                    labelText: 'New Password',
+                    border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscureNew ? Icons.visibility_off : Icons.visibility,
+                        color: Colors.grey,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscureNew = !_obscureNew;
+                        });
+                      },
+                    ),
+                  ),
+                  obscureText: _obscureNew,
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: confirmPasswordController,
+                  decoration: InputDecoration(
+                    labelText: 'Confirm New Password',
+                    border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscureConfirm ? Icons.visibility_off : Icons.visibility,
+                        color: Colors.grey,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _obscureConfirm = !_obscureConfirm;
+                        });
+                      },
+                    ),
+                  ),
+                  obscureText: _obscureConfirm,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Password must be at least 6 characters',
+                  style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                if (mounted) {
+                  Navigator.of(context).pop();
+                }
+              },
+              child: const Text('CANCEL'),
+            ),
+            TextButton(
+              onPressed: () async {
+                final currentPassword = currentPasswordController.text;
+                final newPassword = newPasswordController.text;
+                final confirmPassword = confirmPasswordController.text;
+                
+                if (newPassword != confirmPassword) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Passwords do not match'), backgroundColor: Colors.red),
+                  );
+                  return;
+                }
+                
+                if (newPassword.length < 6) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Password must be at least 6 characters'), backgroundColor: Colors.red),
+                  );
+                  return;
+                }
+                
+                // Show loading indicator
+                setState(() {
+                  // This will rebuild the dialog with loading state if needed
+                });
+                
+                // Call the API
+                final success = await authProvider.updatePassword(currentPassword, newPassword);
+                
+                if (success && mounted) {
+                  // Close the dialog
+                  Navigator.of(context).pop();
+                  
+                  // Show success message
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Password changed successfully!'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                } else if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(authProvider.error ?? 'Failed to change password'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              },
+              child: const Text('UPDATE'),
+            ),
+          ],
+        );
       },
-    );
-  }
+    ),
+  );
+}
 
-  Widget _buildSwitchTile(
-    String title,
-    String subtitle,
-    IconData icon,
-    bool value,
-    VoidCallback onTap,
-  ) {
-    return Card(
-      child: SwitchListTile(
-        secondary: Icon(icon),
-        title: Text(
-          title,
-          style: GoogleFonts.poppins(),
-        ),
-        subtitle: Text(
-          subtitle,
-          style: GoogleFonts.poppins(fontSize: 12),
-        ),
-        value: value,
-        onChanged: (_) => onTap(),
-        activeThumbColor: AppColors.primaryGreen,
-      ),
-    );
-  }
+  // ============================================================
+  // ALL OTHER DIALOGS
+  // ============================================================
 
-  // Dialog Methods
-  void _showChangeUsernameDialog(BuildContext context) {
-    final TextEditingController controller = TextEditingController();
-    
+  void _showAppInfoDialog(BuildContext context) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Change Username'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: controller,
-              decoration: const InputDecoration(
-                labelText: 'New Username',
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Username must be unique and at least 3 characters',
-              style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('CANCEL'),
-          ),
-          TextButton(
-            onPressed: () {
-              // Implement username change
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Username updated successfully'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-            },
-            child: const Text('UPDATE'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showChangeEmailDialog(BuildContext context) {
-    final TextEditingController controller = TextEditingController();
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Change Email'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: controller,
-              decoration: const InputDecoration(
-                labelText: 'New Email',
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.emailAddress,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'A verification email will be sent to your new address',
-              style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('CANCEL'),
-          ),
-          TextButton(
-            onPressed: () {
-              // Implement email change
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Verification email sent'),
-                  backgroundColor: Colors.blue,
-                ),
-              );
-            },
-            child: const Text('SEND VERIFICATION'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showChangePhoneDialog(BuildContext context) {
-    final TextEditingController controller = TextEditingController();
-    
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Change Phone Number'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: controller,
-              decoration: const InputDecoration(
-                labelText: 'New Phone Number',
-                border: OutlineInputBorder(),
-              ),
-              keyboardType: TextInputType.phone,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('CANCEL'),
-          ),
-          TextButton(
-            onPressed: () {
-              // Implement phone change
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Phone number updated successfully'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-            },
-            child: const Text('UPDATE'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showVersionDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('App Version'),
+        title: const Text('App Information'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            _buildInfoRow('App Name', 'Dervin Pharmacy'),
             _buildInfoRow('Version', '1.0.0'),
             _buildInfoRow('Build', '2024.03.11'),
             _buildInfoRow('Flutter', '3.16.0'),
@@ -544,12 +540,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const Divider(),
             const SizedBox(height: 8),
             Text(
-              'Release Date: March 11, 2024',
-              style: GoogleFonts.poppins(fontSize: 12),
-            ),
-            Text(
-              'Compatibility: Android 5.0+ / iOS 12.0+',
-              style: GoogleFonts.poppins(fontSize: 12),
+              '© 2026 Dervin Pharmacy. All rights reserved.',
+              style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
             ),
           ],
         ),
@@ -557,19 +549,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('CLOSE'),
-          ),
-          TextButton(
-            onPressed: () {
-              // Check for updates
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('You have the latest version'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-            },
-            child: const Text('CHECK UPDATES'),
           ),
         ],
       ),
@@ -590,82 +569,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 Text(
                   'Last Updated: March 11, 2024',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: Colors.grey,
-                  ),
+                  style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
                 ),
                 const SizedBox(height: 16),
-                Text(
-                  '1. Acceptance of Terms',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'By accessing and using CT Pharmacy Management System, you agree to be bound by these Terms of Service and all applicable laws and regulations.',
-                  style: GoogleFonts.poppins(fontSize: 14),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  '2. User Accounts',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
+                _buildSection('1. Acceptance of Terms', 
+                  'By accessing and using Dervin Pharmacy Management System, you agree to be bound by these Terms of Service.'),
+                _buildSection('2. User Accounts', 
                   '• You are responsible for maintaining the confidentiality of your account\n'
                   '• You are responsible for all activities under your account\n'
                   '• You must notify us immediately of any unauthorized use\n'
-                  '• We reserve the right to terminate accounts for violations',
-                  style: GoogleFonts.poppins(fontSize: 14),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  '3. Data Accuracy',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'You are responsible for ensuring the accuracy of all data entered into the system, including medicine information, sales records, and inventory counts.',
-                  style: GoogleFonts.poppins(fontSize: 14),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  '4. Prohibited Activities',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
+                  '• We reserve the right to terminate accounts for violations'),
+                _buildSection('3. Data Accuracy', 
+                  'You are responsible for ensuring the accuracy of all data entered into the system, including medicine information, sales records and inventory counts.'),
+                _buildSection('4. Prohibited Activities', 
                   '• Selling expired or counterfeit medicines\n'
                   '• Manipulating inventory records\n'
                   '• Unauthorized access to other accounts\n'
-                  '• Using the system for illegal purposes',
-                  style: GoogleFonts.poppins(fontSize: 14),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  '5. Limitation of Liability',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'CT Pharmacy shall not be liable for any indirect, incidental, or consequential damages arising from the use of this system.',
-                  style: GoogleFonts.poppins(fontSize: 14),
-                ),
+                  '• Using the system for illegal purposes'),
+                _buildSection('5. Limitation of Liability', 
+                  'Dervin Pharmacy shall not be liable for any indirect, incidental, or consequential damages arising from the use of this system.'),
               ],
             ),
           ),
@@ -674,12 +596,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('CLOSE'),
-          ),
-          TextButton(
-            onPressed: () {
-              _launchUrl('https://www.ctpharmacy.com/terms');
-            },
-            child: const Text('VIEW ONLINE'),
           ),
         ],
       ),
@@ -700,82 +616,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
               children: [
                 Text(
                   'Last Updated: March 11, 2024',
-                  style: GoogleFonts.poppins(
-                    fontSize: 12,
-                    color: Colors.grey,
-                  ),
+                  style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
                 ),
                 const SizedBox(height: 16),
-                Text(
-                  'Information We Collect',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
+                _buildSection('Information We Collect', 
                   '• Personal information (name, email, phone)\n'
                   '• Login credentials (encrypted)\n'
                   '• Pharmacy inventory and sales data\n'
-                  '• Usage statistics and preferences',
-                  style: GoogleFonts.poppins(fontSize: 14),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'How We Use Your Information',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
+                  '• Usage statistics and preferences'),
+                _buildSection('How We Use Your Information', 
                   '• To provide and maintain our service\n'
                   '• To notify you about changes\n'
                   '• To provide customer support\n'
-                  '• To gather analysis for improvement',
-                  style: GoogleFonts.poppins(fontSize: 14),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Data Security',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'We implement industry-standard security measures including encryption, secure authentication, and regular security audits to protect your data.',
-                  style: GoogleFonts.poppins(fontSize: 14),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Data Retention',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'We retain your data for as long as your account is active. You may request data deletion by contacting support.',
-                  style: GoogleFonts.poppins(fontSize: 14),
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Third Party Services',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'We may use third-party services for analytics and crash reporting. These services have their own privacy policies.',
-                  style: GoogleFonts.poppins(fontSize: 14),
-                ),
+                  '• To gather analysis for improvement'),
+                _buildSection('Data Security', 
+                  'We implement industry-standard security measures including encryption, secure authentication and regular security audits to protect your data.'),
+                _buildSection('Data Retention', 
+                  'We retain your data for as long as your account is active. You may request data deletion by contacting support.'),
               ],
             ),
           ),
@@ -784,12 +641,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('CLOSE'),
-          ),
-          TextButton(
-            onPressed: () {
-              _launchUrl('https://www.ctpharmacy.com/privacy');
-            },
-            child: const Text('VIEW ONLINE'),
           ),
         ],
       ),
@@ -815,10 +666,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               'Compliance Standards:',
               style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 4),
             const Text('• HIPAA compliant data handling'),
-            const Text('• GDPR ready'),
-            const Text('• ISO 27001 certified infrastructure'),
+            const Text('• GDPR compliant'),
+            const Text('• Local data storage only'),
           ],
         ),
         actions: [
@@ -840,37 +690,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ListTile(
-              leading: const Icon(Icons.email, color: AppColors.primaryGreen),
-              title: const Text('Email Support'),
-              subtitle: const Text('support@ctpharmacy.com'),
-              onTap: () {
-                _launchUrl('mailto:support@ctpharmacy.com');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.phone, color: AppColors.primaryGreen),
-              title: const Text('Phone Support'),
-              subtitle: const Text('+256 700 123 456'),
-              onTap: () {
-                _launchUrl('tel:+256700123456');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.chat, color: AppColors.primaryGreen),
-              title: const Text('Live Chat'),
-              subtitle: const Text('Available 9am-5pm'),
-              onTap: () {
-                _launchUrl('https://www.ctpharmacy.com/chat');
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.help, color: AppColors.primaryGreen),
-              title: const Text('FAQ'),
-              subtitle: const Text('Frequently asked questions'),
-              onTap: () {
-                _launchUrl('https://www.ctpharmacy.com/faq');
-              },
+            _buildContactRow(Icons.email, 'Email Support', 'dervinpharmacy7@gmail.com'),
+            _buildContactRow(Icons.phone, 'Phone Support', '+256 741 910 668'),
+            _buildContactRow(Icons.access_time, 'Support Hours', 'Monday - Friday, 9AM - 5PM'),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, size: 20, color: Colors.blue[700]),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'For technical support, please email us with your issue and we will respond within 24 hours.',
+                      style: GoogleFonts.poppins(fontSize: 12, color: Colors.blue[700]),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -894,12 +735,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           height: 300,
           child: ListView(
             children: [
-              _buildLicenseTile('Flutter', 'BSD 3-Clause', 'https://flutter.dev'),
-              _buildLicenseTile('Django', 'BSD 3-Clause', 'https://djangoproject.com'),
-              _buildLicenseTile('Provider', 'MIT', 'https://pub.dev/packages/provider'),
-              _buildLicenseTile('Dio', 'MIT', 'https://pub.dev/packages/dio'),
-              _buildLicenseTile('Shared Preferences', 'BSD 3-Clause', 'https://pub.dev/packages/shared_preferences'),
-              _buildLicenseTile('Google Fonts', 'MIT', 'https://pub.dev/packages/google_fonts'),
+              _buildLicenseTile('Flutter SDK', 'BSD 3-Clause'),
+              _buildLicenseTile('Provider Package', 'MIT'),
+              _buildLicenseTile('Shared Preferences', 'BSD 3-Clause'),
+              _buildLicenseTile('Google Fonts', 'MIT'),
+              _buildLicenseTile('URL Launcher', 'BSD 3-Clause'),
+              _buildLicenseTile('Path Provider', 'BSD 3-Clause'),
+              _buildLicenseTile('SQFlite', 'BSD 3-Clause'),
             ],
           ),
         ),
@@ -913,12 +755,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildLicenseTile(String name, String license, String url) {
-    return ListTile(
-      title: Text(name),
-      subtitle: Text(license),
-      trailing: const Icon(Icons.open_in_new, size: 16),
-      onTap: () => _launchUrl(url),
+  Widget _buildSection(String title, String content) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            content,
+            style: GoogleFonts.poppins(fontSize: 13, height: 1.5),
+          ),
+        ],
+      ),
     );
   }
 
@@ -928,119 +781,161 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: GoogleFonts.poppins(fontSize: 14, color: Colors.grey),
-          ),
-          Text(
-            value,
-            style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500),
+          Text(label, style: GoogleFonts.poppins(fontSize: 13, color: Colors.grey[600])),
+          Text(value, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContactRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: AppColors.primaryGreen),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey[600])),
+              Text(value, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500)),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Future<void> _launchUrl(String url) async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri);
-    }
-  }
-
-  void _showLanguageDialog(BuildContext context, SettingsProvider provider) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Select Language'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: ListView.builder(
-            shrinkWrap: true,
-            itemCount: provider.availableLanguages.length,
-            itemBuilder: (context, index) {
-              final language = provider.availableLanguages[index];
-              return ListTile(
-                title: Text(language),
-                trailing: provider.language == language
-                    ? const Icon(Icons.check, color: AppColors.primaryGreen)
-                    : null,
-                onTap: () {
-                  provider.setLanguage(language);
-                  Navigator.pop(context);
-                },
-              );
-            },
-          ),
+  Widget _buildLicenseTile(String name, String license) {
+    return ListTile(
+      title: Text(name, style: const TextStyle(fontSize: 14)),
+      trailing: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: Text(
+          license,
+          style: GoogleFonts.poppins(fontSize: 10, color: Colors.grey[700]),
         ),
       ),
     );
   }
 
-  void _showBackupDialog(BuildContext context) async {
-    return showDialog(
+  Future<void> _performBackup(BuildContext context, BackupProvider backupProvider) async {
+    final shouldBackup = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Backup Data'),
-        content: const Text('Create a backup of all your pharmacy data?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('This will backup:'),
+            const SizedBox(height: 8),
+            const Text('• App settings and preferences', style: TextStyle(fontSize: 13)),
+            const Text('• User preferences', style: TextStyle(fontSize: 13)),
+            const Text('• System configuration', style: TextStyle(fontSize: 13)),
+            const SizedBox(height: 16),
+            Text(
+              'Backup will be saved to: ${backupProvider.backupLocation}',
+              style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey),
+            ),
+          ],
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(context, false),
             child: const Text('CANCEL'),
           ),
           TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Backup started...'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-              // Implement actual backup logic
-            },
+            onPressed: () => Navigator.pop(context, true),
             child: const Text('BACKUP'),
           ),
         ],
       ),
-    );
+    ) ?? false;
+    
+    if (shouldBackup) {
+      final success = await backupProvider.performBackup();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(success ? 'Backup completed successfully!' : 'Backup failed: ${backupProvider.error}'),
+            backgroundColor: success ? Colors.green : Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
-  void _showRestoreDialog(BuildContext context) async {
-    return showDialog(
+  void _showRestoreDialog(BuildContext context, BackupProvider backupProvider) async {
+    final backups = await backupProvider.getAvailableBackups();
+    
+    if (backups.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No backups found'), backgroundColor: Colors.orange),
+      );
+      return;
+    }
+    
+    showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Restore Data'),
-        content: const Text('Restore data from backup? This will overwrite current data.'),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: 350,
+          child: Column(
+            children: [
+              const Text('Select a backup to restore:'),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: backups.length,
+                  itemBuilder: (context, index) {
+                    final backup = backups[index];
+                    return ListTile(
+                      leading: Icon(backup['auto_backup'] == true ? Icons.schedule : Icons.backup),
+                      title: Text(backup['name']),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(backup['date']),
+                          Text(backup['size'], style: const TextStyle(fontSize: 11)),
+                        ],
+                      ),
+                      trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                      onTap: () => Navigator.pop(context, backup),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '⚠️ Warning: Restoring will overwrite current settings',
+                style: GoogleFonts.poppins(fontSize: 12, color: Colors.orange),
+              ),
+            ],
+          ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: const Text('CANCEL'),
           ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Restore started...'),
-                  backgroundColor: Colors.orange,
-                ),
-              );
-              // Implement actual restore logic
-            },
-            child: const Text('RESTORE'),
-          ),
         ],
       ),
-    );
-  }
-
-  Future<bool> _showLogoutDialog(BuildContext context) async {
-    return await showDialog<bool>(
+    ).then((selectedBackup) async {
+      if (selectedBackup != null && mounted) {
+        final confirm = await showDialog<bool>(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Logout'),
-            content: const Text('Are you sure you want to logout?'),
+            title: const Text('Confirm Restore'),
+            content: const Text('This will replace current settings. Are you sure?'),
             actions: [
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
@@ -1048,14 +943,71 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               TextButton(
                 onPressed: () => Navigator.pop(context, true),
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.red,
-                ),
-                child: const Text('LOGOUT'),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('RESTORE'),
               ),
             ],
           ),
-        ) ??
-        false;
+        ) ?? false;
+        
+        if (confirm) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (context) => const Center(child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Restoring data...'),
+              ],
+            )),
+          );
+          
+          final success = await backupProvider.restoreBackup(selectedBackup['path']);
+          
+          Navigator.pop(context);
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(success ? 'Settings restored successfully!' : 'Restore failed: ${backupProvider.error}'),
+                backgroundColor: success ? Colors.green : Colors.red,
+                duration: const Duration(seconds: 3),
+              ),
+            );
+            if (success) {
+              setState(() {});
+            }
+          }
+        }
+      }
+    });
+  }
+
+  Future<bool> _showLogoutDialog(BuildContext context) async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('CANCEL'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('LOGOUT'),
+          ),
+        ],
+      ),
+    ) ?? false;
+  }
+
+  String _formatDate(DateTime date) {
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')} '
+        '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
   }
 }

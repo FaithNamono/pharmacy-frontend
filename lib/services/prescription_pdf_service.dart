@@ -55,7 +55,7 @@ class PrescriptionPdfService {
       child: pw.Column(
         children: [
           pw.Text(
-            'CT PHARMACY',
+            'DERVIN PHARMACY',
             style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold, color: PdfColors.blue700),
           ),
           pw.Text(

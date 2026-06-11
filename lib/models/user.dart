@@ -1,3 +1,4 @@
+// lib/models/user.dart
 import 'dart:convert';
 
 class User {
@@ -9,11 +10,10 @@ class User {
   final String? phone;
   final String? role;
   final bool isEmailVerified;
-
-  // ✅ ADDED FIELDS (your app is already using these)
   final bool isAdmin;
   final bool isActive;
   final String? address;
+  final String? lastPasswordChange;
 
   User({
     required this.id,
@@ -27,6 +27,7 @@ class User {
     this.isAdmin = false,
     this.isActive = true,
     this.address,
+    this.lastPasswordChange,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -39,11 +40,10 @@ class User {
       phone: json['phone'],
       role: json['role'],
       isEmailVerified: json['is_email_verified'] ?? false,
-
-      // backend-safe parsing
       isAdmin: json['is_admin'] ?? json['role'] == 'admin',
       isActive: json['is_active'] ?? true,
       address: json['address'],
+      lastPasswordChange: json['last_password_change'],
     );
   }
 
@@ -60,21 +60,49 @@ class User {
       'is_admin': isAdmin,
       'is_active': isActive,
       'address': address,
+      'last_password_change': lastPasswordChange,
     };
   }
 
-  // ✅ FIXED SERIALIZATION
   String toJsonString() => jsonEncode(toJson());
 
-  factory User.fromJsonString(String str) =>
-      User.fromJson(jsonDecode(str));
+  factory User.fromJsonString(String str) => User.fromJson(jsonDecode(str));
 
-  // ✅ USED IN UI
   String get fullName => '$firstName $lastName'.trim();
 
   String get initials {
     final f = firstName.isNotEmpty ? firstName[0] : '';
     final l = lastName.isNotEmpty ? lastName[0] : '';
     return (f + l).toUpperCase();
+  }
+
+  User copyWith({
+    int? id,
+    String? username,
+    String? email,
+    String? firstName,
+    String? lastName,
+    String? phone,
+    String? role,
+    bool? isEmailVerified,
+    bool? isAdmin,
+    bool? isActive,
+    String? address,
+    String? lastPasswordChange,
+  }) {
+    return User(
+      id: id ?? this.id,
+      username: username ?? this.username,
+      email: email ?? this.email,
+      firstName: firstName ?? this.firstName,
+      lastName: lastName ?? this.lastName,
+      phone: phone ?? this.phone,
+      role: role ?? this.role,
+      isEmailVerified: isEmailVerified ?? this.isEmailVerified,
+      isAdmin: isAdmin ?? this.isAdmin,
+      isActive: isActive ?? this.isActive,
+      address: address ?? this.address,
+      lastPasswordChange: lastPasswordChange ?? this.lastPasswordChange,
+    );
   }
 }

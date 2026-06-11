@@ -1,5 +1,4 @@
 // lib/main.dart
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -12,6 +11,7 @@ import 'providers/settings_provider.dart';
 import 'providers/expense_provider.dart';
 import 'providers/credit_provider.dart';
 import 'providers/prescription_provider.dart';
+import 'providers/backup_provider.dart';
 
 import 'services/api_service.dart';
 import 'services/auth_service.dart';
@@ -121,16 +121,19 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(
           create: (_) => PrescriptionProvider(apiService),
         ),
+        ChangeNotifierProvider(
+          create: (_) => BackupProvider(),
+        ),
       ],
-      child: Consumer2<AuthProvider, SettingsProvider>(
-        builder: (context, authProvider, settingsProvider, child) {
+      child: Consumer<SettingsProvider>(
+        builder: (context, settingsProvider, child) {
           return MaterialApp(
-            title: 'CT Pharmacy',
+            title: 'Dervin Pharmacy',
             debugShowCheckedModeBanner: false,
             theme: AppTheme.lightTheme,
             darkTheme: AppTheme.darkTheme,
             themeMode: settingsProvider.getThemeMode(),
-            initialRoute: _getInitialRoute(authProvider, onboardingCompleted),
+            initialRoute: _getInitialRoute(onboardingCompleted),
             routes: {
               '/splash': (context) => const SplashScreen(),
               '/onboarding': (context) => const OnboardingScreen(),
@@ -248,16 +251,8 @@ class MyApp extends StatelessWidget {
     );
   }
 
-  String _getInitialRoute(AuthProvider authProvider, bool onboardingCompleted) {
-    if (authProvider.isLoading) {
-      return '/splash';
-    }
-    if (authProvider.isAuthenticated) {
-      return '/home';
-    }
-    if (!onboardingCompleted) {
-      return '/onboarding';
-    }
-    return '/login';
+  String _getInitialRoute(bool onboardingCompleted) {
+    // We'll check auth state in the splash screen
+    return '/splash';
   }
 }

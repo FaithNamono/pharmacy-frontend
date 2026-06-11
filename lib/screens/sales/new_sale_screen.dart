@@ -224,6 +224,20 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
                                     searchQuery.isEmpty ? 'No available medicines' : 'No matching medicines',
                                     style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey.shade600),
                                   ),
+                                  const SizedBox(height: 16),
+                                  ElevatedButton.icon(
+                                    onPressed: () {
+                                      Navigator.pop(dialogContext);
+                                      Navigator.pushNamed(context, '/add-medicine').then((_) {
+                                        _loadMedicines();
+                                      });
+                                    },
+                                    icon: const Icon(Icons.add),
+                                    label: const Text('Add New Medicine'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.primaryGreen,
+                                    ),
+                                  ),
                                 ],
                               ),
                             );
@@ -256,8 +270,50 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
                                     style: GoogleFonts.poppins(fontSize: 12),
                                   ),
                                   trailing: alreadyInCart
-                                      ? const Icon(Icons.check_circle, color: Colors.green)
-                                      : null,
+                                      ? Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                          decoration: BoxDecoration(
+                                            color: Colors.green.withOpacity(0.2),
+                                            borderRadius: BorderRadius.circular(8),
+                                          ),
+                                          child: const Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Icon(Icons.check_circle, color: Colors.green, size: 16),
+                                              SizedBox(width: 4),
+                                              Text(
+                                                'Added',
+                                                style: TextStyle(
+                                                  color: Colors.green,
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        )
+                                      : ElevatedButton(
+                                          onPressed: () {
+                                            Navigator.pop(dialogContext);
+                                            _showQuantityDialog(medicine);
+                                          },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: AppColors.primaryGreen,
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(8),
+                                            ),
+                                          ),
+                                          child: const Text(
+                                            'ADD',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 12,
+                                            ),
+                                          ),
+                                        ),
                                   onTap: () {
                                     Navigator.pop(dialogContext);
                                     _showQuantityDialog(medicine);
@@ -344,18 +400,111 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(context),
-                  child: const Text('Cancel'),
+                  child: const Text('CANCEL'),
                 ),
                 ElevatedButton(
                   onPressed: () {
                     Navigator.pop(context);
                     _addToCart(medicine, quantity);
                   },
-                  child: Text('Add (UGX ${(medicine.retailPrice * quantity).toStringAsFixed(0)})'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primaryGreen,
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                  ),
+                  child: Text(
+                    'ADD TO CART (UGX ${(medicine.retailPrice * quantity).toStringAsFixed(0)})',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  ),
                 ),
               ],
             );
           },
+        );
+      },
+    );
+  }
+
+  void _showReceiptOptions(SaleGroup saleGroup) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  'Receipt Options',
+                  style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const Divider(),
+              ListTile(
+                leading: const Icon(Icons.print, color: AppColors.primaryGreen),
+                title: const Text('Print Receipt'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () async {
+                  Navigator.pop(context);
+                  try {
+                    await PdfService.generateSaleReceipt(saleGroup);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Receipt generated and downloaded'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Error: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.download, color: Colors.blue),
+                title: const Text('Download Receipt'),
+                trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+                onTap: () async {
+                  Navigator.pop(context);
+                  try {
+                    await PdfService.generateSaleReceipt(saleGroup);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Receipt downloaded successfully'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Error: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                },
+              ),
+              const SizedBox(height: 8),
+            ],
+          ),
         );
       },
     );
@@ -379,10 +528,10 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     
     final saleData = {
-      'items': _cartItems.map((item) => {
+      'items': _cartItems.map((item) => ({
         'medicine_id': item.medicine.id,
         'quantity': item.quantity,
-      }).toList(),
+      })).toList(),
       'user': authProvider.currentUser!.id,
       'customer_name': _customerNameController.text.trim(),
       'notes': _notesController.text.trim(),
@@ -399,7 +548,6 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
     if (success && mounted) {
       await provider.loadSales(refresh: true);
       
-      // Fixed: Handle nullable SaleGroup properly
       SaleGroup? saleGroup;
       try {
         saleGroup = provider.saleGroups.firstWhere(
@@ -412,30 +560,8 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
       }
       
       if (saleGroup != null && saleGroup.saleId.isNotEmpty) {
-        try {
-          await PdfService.generateSaleReceipt(saleGroup);
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('✅ Sale completed! Receipt generated.'),
-                backgroundColor: Colors.green,
-                duration: Duration(seconds: 2),
-              ),
-            );
-            Navigator.pop(context, true);
-          }
-        } catch (e) {
-          print('PDF Generation Error: $e');
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('✅ Sale completed but PDF generation failed: $e'),
-                backgroundColor: Colors.orange,
-              ),
-            );
-            Navigator.pop(context, true);
-          }
-        }
+        _showReceiptOptions(saleGroup);
+        Navigator.pop(context, true);
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -473,30 +599,76 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  ElevatedButton.icon(
-                    onPressed: _showMedicineSelector,
-                    icon: const Icon(Icons.add_shopping_cart),
-                    label: const Text('Add Medicine to Cart'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primaryGreen,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                  // ADD TO CART BUTTON - MAIN BUTTON
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [AppColors.primaryGreen, AppColors.primaryGreen.withOpacity(0.8)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      ),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.primaryGreen.withOpacity(0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: ElevatedButton.icon(
+                      onPressed: _showMedicineSelector,
+                      icon: const Icon(Icons.add_shopping_cart, size: 28, color: Colors.white),
+                      label: Text(
+                        'ADD MEDICINE TO CART',
+                        style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 18),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
                       ),
                     ),
                   ),
                   
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 24),
                   
                   if (_cartItems.isNotEmpty) ...[
-                    Text(
-                      'Cart Items (${_cartItems.length})',
-                      style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Cart Items (${_cartItems.length})',
+                          style: GoogleFonts.poppins(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.primaryGreen,
+                          ),
+                        ),
+                        TextButton.icon(
+                          onPressed: () {
+                            setState(() {
+                              _cartItems.clear();
+                            });
+                          },
+                          icon: const Icon(Icons.delete_sweep, color: Colors.red),
+                          label: const Text(
+                            'Clear Cart',
+                            style: TextStyle(color: Colors.red),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 12),
                     ListView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
@@ -504,7 +676,11 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
                       itemBuilder: (context, index) {
                         final item = _cartItems[index];
                         return Card(
-                          margin: const EdgeInsets.only(bottom: 8),
+                          margin: const EdgeInsets.only(bottom: 12),
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                           child: Padding(
                             padding: const EdgeInsets.all(12),
                             child: Column(
@@ -519,6 +695,7 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
                                             item.medicine.name,
                                             style: GoogleFonts.poppins(
                                               fontWeight: FontWeight.w600,
+                                              fontSize: 15,
                                             ),
                                           ),
                                           Text(
@@ -534,6 +711,7 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
                                     IconButton(
                                       icon: const Icon(Icons.delete_outline, color: Colors.red),
                                       onPressed: () => _removeFromCart(index),
+                                      tooltip: 'Remove from cart',
                                     ),
                                   ],
                                 ),
@@ -541,31 +719,44 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
                                 Row(
                                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Row(
-                                      children: [
-                                        IconButton(
-                                          icon: const Icon(Icons.remove_circle_outline, size: 20),
-                                          onPressed: () => _updateQuantity(index, item.quantity - 1),
-                                        ),
-                                        SizedBox(
-                                          width: 40,
-                                          child: Text(
-                                            item.quantity.toString(),
-                                            textAlign: TextAlign.center,
-                                            style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
+                                    Container(
+                                      decoration: BoxDecoration(
+                                        border: Border.all(color: Colors.grey.shade300),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Row(
+                                        children: [
+                                          IconButton(
+                                            icon: const Icon(Icons.remove, size: 18),
+                                            onPressed: () => _updateQuantity(index, item.quantity - 1),
+                                            constraints: const BoxConstraints(minWidth: 36),
+                                            tooltip: 'Decrease quantity',
                                           ),
-                                        ),
-                                        IconButton(
-                                          icon: const Icon(Icons.add_circle_outline, size: 20),
-                                          onPressed: () => _updateQuantity(index, item.quantity + 1),
-                                        ),
-                                      ],
+                                          SizedBox(
+                                            width: 40,
+                                            child: Text(
+                                              item.quantity.toString(),
+                                              textAlign: TextAlign.center,
+                                              style: GoogleFonts.poppins(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 16,
+                                              ),
+                                            ),
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.add, size: 18),
+                                            onPressed: () => _updateQuantity(index, item.quantity + 1),
+                                            constraints: const BoxConstraints(minWidth: 36),
+                                            tooltip: 'Increase quantity',
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                     Text(
                                       'UGX ${item.subtotal.toStringAsFixed(0)}',
                                       style: GoogleFonts.poppins(
                                         fontWeight: FontWeight.bold,
-                                        fontSize: 16,
+                                        fontSize: 18,
                                         color: AppColors.primaryGreen,
                                       ),
                                     ),
@@ -581,6 +772,10 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
                   ],
                   
                   Card(
+                    elevation: 2,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
@@ -651,6 +846,7 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
             ),
           ),
           
+          // Bottom Total and Complete Sale Button
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
