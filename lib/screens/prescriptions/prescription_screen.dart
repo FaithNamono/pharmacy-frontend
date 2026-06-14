@@ -1,6 +1,5 @@
 // lib/screens/prescriptions/prescription_screen.dart
 
-import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -18,6 +17,7 @@ import '../../widgets/custom_textfield.dart';
 import '../../services/prescription_pdf_service.dart';
 import '../../utils/constants.dart';
 import '../../widgets/medicine_search_dialog_prescription.dart';
+import '../../widgets/fill_prescription_dialog.dart';
 
 class PrescriptionScreen extends StatefulWidget {
   const PrescriptionScreen({super.key});
@@ -41,7 +41,7 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> with SingleTick
         });
       }
     });
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         context.read<PrescriptionProvider>().loadPrescriptions();
@@ -60,23 +60,51 @@ class _PrescriptionScreenState extends State<PrescriptionScreen> with SingleTick
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Prescriptions'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-        bottom: TabBar(
-          controller: _tabController,
-          indicatorColor: AppColors.primaryGreen,
-          labelColor: AppColors.primaryGreen,
-          unselectedLabelColor: Colors.grey,
-          tabs: const [
-            Tab(text: 'All Prescriptions'),
-            Tab(text: 'Add Prescription'),
-            Tab(text: 'Pending'),
-          ],
-        ),
-      ),
+  title: const Text(
+    'Prescriptions',
+    style: TextStyle(
+      color: Colors.white,
+      fontWeight: FontWeight.w600,
+    ),
+  ),
+  leading: IconButton(
+    icon: const Icon(
+      Icons.arrow_back,
+      color: Colors.white,
+    ),
+    onPressed: () => Navigator.pop(context),
+  ),
+
+  backgroundColor: AppColors.primaryDark,
+  foregroundColor: Colors.white,
+
+  bottom: TabBar(
+    controller: _tabController,
+
+    // FIXED COLORS
+    indicatorColor: Colors.white,
+    indicatorWeight: 3,
+
+    labelColor: Colors.white,
+    unselectedLabelColor: Colors.white70,
+
+    labelStyle: const TextStyle(
+      fontWeight: FontWeight.w600,
+      fontSize: 14,
+    ),
+
+    unselectedLabelStyle: const TextStyle(
+      fontWeight: FontWeight.w500,
+      fontSize: 14,
+    ),
+
+    tabs: const [
+      Tab(text: 'All Prescriptions'),
+      Tab(text: 'Add Prescription'),
+      Tab(text: 'Pending'),
+    ],
+  ),
+),
       body: IndexedStack(
         index: _selectedIndex,
         children: const [
@@ -141,7 +169,7 @@ class PrescriptionListTab extends StatelessWidget {
             itemCount: provider.prescriptions.length,
             itemBuilder: (context, index) {
               final rx = provider.prescriptions[index];
-              
+
               return Dismissible(
                 key: Key(rx.prescriptionId),
                 direction: DismissDirection.endToStart,
@@ -213,16 +241,16 @@ class PrescriptionListTab extends StatelessWidget {
                           children: [
                             const Icon(Icons.medical_services, size: 12, color: Colors.grey),
                             const SizedBox(width: 4),
-                            Text(
-                              '${rx.items.length} items',
-                              style: GoogleFonts.poppins(fontSize: 12),
-                            ),
+                            Text('${rx.items.length} items', style: GoogleFonts.poppins(fontSize: 12)),
                             const SizedBox(width: 12),
                             const Icon(Icons.person, size: 12, color: Colors.grey),
                             const SizedBox(width: 4),
-                            Text(
-                              rx.doctorName,
-                              style: GoogleFonts.poppins(fontSize: 12),
+                            Flexible(
+                              child: Text(
+                                rx.doctorName,
+                                style: GoogleFonts.poppins(fontSize: 12),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ),
                             if (rx.prescriptionImage != null && rx.prescriptionImage!.isNotEmpty) ...[
                               const SizedBox(width: 12),
@@ -237,10 +265,7 @@ class PrescriptionListTab extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
                             color: rx.statusColor.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(12),
@@ -261,9 +286,7 @@ class PrescriptionListTab extends StatelessWidget {
                         ),
                       ],
                     ),
-                    onTap: () {
-                      _showPrescriptionDetails(context, rx, provider);
-                    },
+                    onTap: () => _showPrescriptionDetails(context, rx, provider),
                   ),
                 ),
               );
@@ -274,169 +297,231 @@ class PrescriptionListTab extends StatelessWidget {
     );
   }
 
-  static void _showPrescriptionDetails(BuildContext context, Prescription rx, PrescriptionProvider provider) {
-  final filledCount = rx.items.fold<int>(0, (sum, item) => sum + item.filledQuantity);
-  final totalCount = rx.items.fold<int>(0, (sum, item) => sum + item.prescribedQuantity);
-  final progress = totalCount > 0 ? filledCount / totalCount : 0.0;
+  static void _showPrescriptionDetails(
+    BuildContext context,
+    Prescription rx,
+    PrescriptionProvider provider,
+  ) {
+    final filledCount = rx.items.fold<int>(0, (sum, item) => sum + item.filledQuantity);
+    final totalCount = rx.items.fold<int>(0, (sum, item) => sum + item.prescribedQuantity);
+    final progress = totalCount > 0 ? filledCount / totalCount : 0.0;
 
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-    ),
-    builder: (context) {
-      return StatefulBuilder(
-        builder: (context, setState) {
-          return Container(
-            padding: const EdgeInsets.all(24),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Prescription Details',
-                        style: GoogleFonts.poppins(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      // Wrap in Expanded to constrain horizontal space
-                      Expanded(
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.delete, color: Colors.red),
-                                onPressed: () async {
-                                  Navigator.pop(context);
-                                  final confirm = await showDialog(
-                                    context: context,
-                                    builder: (context) => AlertDialog(
-                                      title: const Text('Delete Prescription'),
-                                      content: Text('Delete ${rx.prescriptionId}?'),
-                                      actions: [
-                                        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('CANCEL')),
-                                        TextButton(onPressed: () => Navigator.pop(context, true), style: TextButton.styleFrom(foregroundColor: Colors.red), child: const Text('DELETE')),
-                                      ],
-                                    ),
-                                  );
-                                  if (confirm == true) {
-                                    await provider.deletePrescription(rx.id);
-                                    if (context.mounted) provider.loadPrescriptions();
-                                  }
-                                },
-                                tooltip: 'Delete',
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.download, color: Colors.blue),
-                                onPressed: () async {
-                                  await PrescriptionPdfService.generateAndDownload(rx);
-                                  if (context.mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PDF downloaded successfully')));
-                                  }
-                                },
-                                tooltip: 'Download PDF',
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.print, color: Colors.green),
-                                onPressed: () async {
-                                  await PrescriptionPdfService.generateAndPrint(rx);
-                                },
-                                tooltip: 'Print',
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.share, color: Colors.orange),
-                                onPressed: () async {
-                                  await Share.share('Prescription ${rx.prescriptionId} for ${rx.patientName}');
-                                },
-                                tooltip: 'Share',
-                              ),
-                            ],
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Container(
+              padding: const EdgeInsets.all(24),
+              // Make the sheet take up to 90% of screen height
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.9,
+              ),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // ✅ FIXED: No Expanded inside Row — use Flexible for title,
+                    // plain Row(mainAxisSize.min) for icons
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            'Prescription Details',
+                            style: GoogleFonts.poppins(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  if (rx.status == 'partially_filled' || rx.status == 'pending') ...[
-                    LinearProgressIndicator(
-                      value: progress.clamp(0.0, 1.0),
-                      backgroundColor: Colors.grey.shade200,
-                      valueColor: const AlwaysStoppedAnimation<Color>(Colors.orange),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.delete, color: Colors.red),
+                              tooltip: 'Delete',
+                              onPressed: () async {
+                                Navigator.pop(context);
+                                final confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: const Text('Delete Prescription'),
+                                    content: Text('Delete ${rx.prescriptionId}?'),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context, false),
+                                        child: const Text('CANCEL'),
+                                      ),
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context, true),
+                                        style: TextButton.styleFrom(foregroundColor: Colors.red),
+                                        child: const Text('DELETE'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (confirm == true) {
+                                  await provider.deletePrescription(rx.id);
+                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                    if (context.mounted) provider.loadPrescriptions();
+                                  });
+                                }
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.download, color: Colors.blue),
+                              tooltip: 'Download PDF',
+                              onPressed: () async {
+                                await PrescriptionPdfService.generateAndDownload(rx);
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('PDF downloaded successfully')),
+                                  );
+                                }
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.print, color: Colors.green),
+                              tooltip: 'Print',
+                              onPressed: () async {
+                                await PrescriptionPdfService.generateAndPrint(rx);
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.share, color: Colors.orange),
+                              tooltip: 'Share',
+                              onPressed: () async {
+                                await Share.share(
+                                  'Prescription ${rx.prescriptionId} for ${rx.patientName}',
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 8),
-                    Text('$filledCount of $totalCount items filled', style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey)),
-                    const SizedBox(height: 16),
-                  ],
-                  // ... remainder of your existing builder code (details and medicines)
-                  _buildDetailRow('RX Number', rx.prescriptionId),
-                  _buildDetailRow('Patient', rx.patientName),
-                  if (rx.patientAge != null) _buildDetailRow('Age', '${rx.patientAge}'),
-                  if (rx.patientPhone.isNotEmpty) _buildDetailRow('Phone', rx.patientPhone),
-                  _buildDetailRow('Doctor', rx.doctorName),
-                  _buildDetailRow('Hospital', rx.hospital.isEmpty ? 'Not specified' : rx.hospital),
-                  _buildDetailRow('Issue Date', DateFormat('dd/MM/yyyy').format(rx.issueDate)),
-                  _buildDetailRow('Expiry Date', DateFormat('dd/MM/yyyy').format(rx.expiryDate)),
-                  _buildDetailRow('Status', rx.statusDisplay),
-                  if (rx.diagnosis.isNotEmpty) _buildDetailRow('Diagnosis', rx.diagnosis),
-                  if (rx.notes.isNotEmpty) _buildDetailRow('Notes', rx.notes),
-                  if (rx.prescriptionImage != null && rx.prescriptionImage!.isNotEmpty) _buildDetailRow('Has Image', 'Yes ✓'),
-                  if (rx.items.isNotEmpty) ...[
-                    const SizedBox(height: 16),
-                    const Divider(),
-                    const SizedBox(height: 8),
-                    Text('Medicines', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 8),
-                    ...rx.items.map((item) => Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+
+                    const SizedBox(height: 24),
+
+                    if (rx.status == 'partially_filled' || rx.status == 'pending') ...[
+                      LinearProgressIndicator(
+                        value: progress.clamp(0.0, 1.0),
+                        backgroundColor: Colors.grey.shade200,
+                        valueColor: const AlwaysStoppedAnimation<Color>(Colors.orange),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '$filledCount of $totalCount items filled',
+                        style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+
+                    _buildDetailRow('RX Number', rx.prescriptionId),
+                    _buildDetailRow('Patient', rx.patientName),
+                    if (rx.patientAge != null) _buildDetailRow('Age', '${rx.patientAge}'),
+                    if (rx.patientPhone.isNotEmpty) _buildDetailRow('Phone', rx.patientPhone),
+                    _buildDetailRow('Doctor', rx.doctorName),
+                    _buildDetailRow('Hospital', rx.hospital.isEmpty ? 'Not specified' : rx.hospital),
+                    _buildDetailRow('Issue Date', DateFormat('dd/MM/yyyy').format(rx.issueDate)),
+                    _buildDetailRow('Expiry Date', DateFormat('dd/MM/yyyy').format(rx.expiryDate)),
+                    _buildDetailRow('Status', rx.statusDisplay),
+                    if (rx.diagnosis.isNotEmpty) _buildDetailRow('Diagnosis', rx.diagnosis),
+                    if (rx.notes.isNotEmpty) _buildDetailRow('Notes', rx.notes),
+                    if (rx.prescriptionImage != null && rx.prescriptionImage!.isNotEmpty)
+                      _buildDetailRow('Has Image', 'Yes ✓'),
+
+                    if (rx.items.isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      const Divider(),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          'Medicines',
+                          style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      ...rx.items.map((item) => Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(item.medicineName, style: GoogleFonts.poppins(fontSize: 14)),
+                                  if (item.dosageInstructions.isNotEmpty)
+                                    Text(
+                                      item.dosageInstructions,
+                                      style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey),
+                                    ),
+                                ],
+                              ),
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                Text(item.medicineName, style: GoogleFonts.poppins(fontSize: 14)),
-                                if (item.dosageInstructions.isNotEmpty) Text(item.dosageInstructions, style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey)),
+                                Text(
+                                  '${item.prescribedQuantity} units',
+                                  style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey),
+                                ),
+                                if (item.filledQuantity > 0)
+                                  Text(
+                                    'Filled: ${item.filledQuantity}',
+                                    style: GoogleFonts.poppins(
+                                      fontSize: 11,
+                                      color: item.isFullyFilled ? Colors.green : Colors.orange,
+                                    ),
+                                  ),
                               ],
                             ),
-                          ),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text('${item.prescribedQuantity} units', style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey)),
-                              if (item.filledQuantity > 0) Text('Filled: ${item.filledQuantity}', style: GoogleFonts.poppins(fontSize: 11, color: item.isFullyFilled ? Colors.green : Colors.orange)),
-                            ],
-                          ),
-                        ],
+                          ],
+                        ),
+                      )),
+                    ],
+
+                    const SizedBox(height: 24),
+
+                    if (rx.status == 'pending' || rx.status == 'partially_filled')
+                      CustomButton(
+                        text: 'FILL PRESCRIPTION',
+                        onPressed: () async {
+                          Navigator.pop(context);
+                          final result = await showDialog<bool>(
+                            context: context,
+                            builder: (context) => FillPrescriptionDialog(prescription: rx),
+                          );
+                          if (result == true && context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('✅ Prescription filled successfully')),
+                            );
+                            WidgetsBinding.instance.addPostFrameCallback((_) {
+                              if (context.mounted) provider.loadPrescriptions();
+                            });
+                          }
+                        },
+                        isFullWidth: true,
                       ),
-                    )),
+
+                    const SizedBox(height: 16),
                   ],
-                  const SizedBox(height: 24),
-                  if (rx.status == 'pending' || rx.status == 'partially_filled')
-                    CustomButton(
-                      text: 'FILL PRESCRIPTION',
-                      onPressed: () async {
-                        Navigator.pop(context);
-                        final result = await showDialog(context: context, builder: (context) => FillPrescriptionDialog(prescription: rx));
-                        if (result == true && context.mounted) provider.loadPrescriptions();
-                      },
-                    ),
-                ],
+                ),
               ),
-            ),
-          );
-        },
-      );
-    },
-  );
-}
+            );
+          },
+        );
+      },
+    );
+  }
 
   static Widget _buildDetailRow(String label, String value) {
     return Padding(
@@ -446,7 +531,10 @@ class PrescriptionListTab extends StatelessWidget {
         children: [
           SizedBox(
             width: 100,
-            child: Text(label, style: GoogleFonts.poppins(color: Colors.grey, fontSize: 13)),
+            child: Text(
+              label,
+              style: GoogleFonts.poppins(color: Colors.grey, fontSize: 13),
+            ),
           ),
           Expanded(
             child: Text(
@@ -462,7 +550,7 @@ class PrescriptionListTab extends StatelessWidget {
 }
 
 // ============================================================
-// ADD PRESCRIPTION TAB (No changes needed, keep as is)
+// ADD PRESCRIPTION TAB
 // ============================================================
 
 class AddPrescriptionTab extends StatefulWidget {
@@ -482,7 +570,7 @@ class _AddPrescriptionTabState extends State<AddPrescriptionTab> {
   final _hospitalController = TextEditingController();
   final _diagnosisController = TextEditingController();
   final _notesController = TextEditingController();
-  
+
   DateTime _issueDate = DateTime.now();
   DateTime _expiryDate = DateTime.now().add(const Duration(days: 30));
   Uint8List? _prescriptionImageBytes;
@@ -515,9 +603,7 @@ class _AddPrescriptionTabState extends State<AddPrescriptionTab> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
@@ -580,10 +666,7 @@ class _AddPrescriptionTabState extends State<AddPrescriptionTab> {
                     children: [
                       Text(
                         'Select Medicine',
-                        style: GoogleFonts.poppins(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                       IconButton(
                         icon: const Icon(Icons.close),
@@ -677,7 +760,6 @@ class _AddPrescriptionTabState extends State<AddPrescriptionTab> {
                   );
                   return;
                 }
-                
                 setState(() {
                   _prescriptionItems.add(PrescriptionItemModel(
                     medicineId: medicine.id,
@@ -707,7 +789,7 @@ class _AddPrescriptionTabState extends State<AddPrescriptionTab> {
             key: _formKey,
             child: Column(
               children: [
-                // Patient Information Card (keep as is)
+                // Patient Information
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -728,9 +810,7 @@ class _AddPrescriptionTabState extends State<AddPrescriptionTab> {
                           label: 'Patient Name *',
                           prefixIcon: Icons.person,
                           validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter patient name';
-                            }
+                            if (value == null || value.isEmpty) return 'Please enter patient name';
                             return null;
                           },
                         ),
@@ -763,7 +843,7 @@ class _AddPrescriptionTabState extends State<AddPrescriptionTab> {
 
                 const SizedBox(height: 16),
 
-                // Doctor Information Card (keep as is)
+                // Doctor Information
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -784,9 +864,7 @@ class _AddPrescriptionTabState extends State<AddPrescriptionTab> {
                           label: 'Doctor Name *',
                           prefixIcon: Icons.medical_services,
                           validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please enter doctor name';
-                            }
+                            if (value == null || value.isEmpty) return 'Please enter doctor name';
                             return null;
                           },
                         ),
@@ -817,7 +895,7 @@ class _AddPrescriptionTabState extends State<AddPrescriptionTab> {
 
                 const SizedBox(height: 16),
 
-                // Prescription Details Card (keep as is)
+                // Prescription Details
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -845,18 +923,14 @@ class _AddPrescriptionTabState extends State<AddPrescriptionTab> {
                                     lastDate: DateTime.now(),
                                   );
                                   if (picked != null && mounted) {
-                                    setState(() {
-                                      _issueDate = picked;
-                                    });
+                                    setState(() => _issueDate = picked);
                                   }
                                 },
                                 child: InputDecorator(
                                   decoration: InputDecoration(
                                     labelText: 'Issue Date',
                                     prefixIcon: const Icon(Icons.calendar_today),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                                   ),
                                   child: Text(
                                     DateFormat('dd/MM/yyyy').format(_issueDate),
@@ -876,18 +950,14 @@ class _AddPrescriptionTabState extends State<AddPrescriptionTab> {
                                     lastDate: DateTime.now().add(const Duration(days: 365)),
                                   );
                                   if (picked != null && mounted) {
-                                    setState(() {
-                                      _expiryDate = picked;
-                                    });
+                                    setState(() => _expiryDate = picked);
                                   }
                                 },
                                 child: InputDecorator(
                                   decoration: InputDecoration(
                                     labelText: 'Expiry Date',
                                     prefixIcon: const Icon(Icons.calendar_today),
-                                    border: OutlineInputBorder(
-                                      borderRadius: BorderRadius.circular(10),
-                                    ),
+                                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                                   ),
                                   child: Text(
                                     DateFormat('dd/MM/yyyy').format(_expiryDate),
@@ -919,7 +989,7 @@ class _AddPrescriptionTabState extends State<AddPrescriptionTab> {
 
                 const SizedBox(height: 16),
 
-                // Prescription Image Card (keep as is)
+                // Prescription Image
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -955,11 +1025,7 @@ class _AddPrescriptionTabState extends State<AddPrescriptionTab> {
                                 child: IconButton(
                                   icon: const Icon(Icons.delete, color: Colors.red),
                                   onPressed: () {
-                                    if (mounted) {
-                                      setState(() {
-                                        _prescriptionImageBytes = null;
-                                      });
-                                    }
+                                    if (mounted) setState(() => _prescriptionImageBytes = null);
                                   },
                                 ),
                               ),
@@ -993,7 +1059,7 @@ class _AddPrescriptionTabState extends State<AddPrescriptionTab> {
 
                 const SizedBox(height: 16),
 
-                // Prescription Items Card (keep as is)
+                // Medicines
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16),
@@ -1058,11 +1124,7 @@ class _AddPrescriptionTabState extends State<AddPrescriptionTab> {
                                   trailing: IconButton(
                                     icon: const Icon(Icons.delete, color: Colors.red),
                                     onPressed: () {
-                                      if (mounted) {
-                                        setState(() {
-                                          _prescriptionItems.removeAt(index);
-                                        });
-                                      }
+                                      if (mounted) setState(() => _prescriptionItems.removeAt(index));
                                     },
                                   ),
                                 ),
@@ -1078,83 +1140,83 @@ class _AddPrescriptionTabState extends State<AddPrescriptionTab> {
 
                 CustomButton(
                   text: _isSaving ? 'SAVING...' : 'SAVE PRESCRIPTION',
-                  onPressed: _isSaving ? null : () async {
-                    if (_formKey.currentState!.validate()) {
-                      if (_prescriptionItems.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Please add at least one medicine'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                        return;
-                      }
-                      
-                      if (mounted) {
-                        setState(() => _isSaving = true);
-                      }
-                      
-                      final prescriptionData = {
-                        'patient_name': _patientNameController.text.trim(),
-                        'patient_age': int.tryParse(_patientAgeController.text),
-                        'patient_phone': _patientPhoneController.text.trim(),
-                        'doctor_name': _doctorNameController.text.trim(),
-                        'doctor_license': _doctorLicenseController.text.trim(),
-                        'hospital': _hospitalController.text.trim(),
-                        'issue_date': _issueDate.toIso8601String().split('T')[0],
-                        'expiry_date': _expiryDate.toIso8601String().split('T')[0],
-                        'diagnosis': _diagnosisController.text.trim(),
-                        'notes': _notesController.text.trim(),
-                        'items': _prescriptionItems.map((item) => ({
-                          'medicine': item.medicineId,
-                          'prescribed_quantity': item.quantity,
-                          'dosage_instructions': item.dosageInstructions,
-                          'duration': item.duration,
-                        })).toList(),
-                      };
-                      
-                      final success = await provider.createPrescription(
-                        prescriptionData,
-                        imageBytes: _prescriptionImageBytes,
-                      );
-                      
-                      if (mounted) {
-                        setState(() => _isSaving = false);
-                      }
-                      
-                      if (success && mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('✅ Prescription saved successfully'),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
-                        _patientNameController.clear();
-                        _patientAgeController.clear();
-                        _patientPhoneController.clear();
-                        _doctorNameController.clear();
-                        _doctorLicenseController.clear();
-                        _hospitalController.clear();
-                        _diagnosisController.clear();
-                        _notesController.clear();
-                        if (mounted) {
-                          setState(() {
-                            _prescriptionItems.clear();
-                            _prescriptionImageBytes = null;
-                            _issueDate = DateTime.now();
-                            _expiryDate = DateTime.now().add(const Duration(days: 30));
-                          });
-                        }
-                      } else if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(provider.error ?? 'Failed to save prescription'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      }
-                    }
-                  },
+                  onPressed: _isSaving
+                      ? null
+                      : () async {
+                          if (_formKey.currentState!.validate()) {
+                            if (_prescriptionItems.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Please add at least one medicine'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                              return;
+                            }
+
+                            if (mounted) setState(() => _isSaving = true);
+
+                            final prescriptionData = {
+                              'patient_name': _patientNameController.text.trim(),
+                              'patient_age': int.tryParse(_patientAgeController.text),
+                              'patient_phone': _patientPhoneController.text.trim(),
+                              'doctor_name': _doctorNameController.text.trim(),
+                              'doctor_license': _doctorLicenseController.text.trim(),
+                              'hospital': _hospitalController.text.trim(),
+                              'issue_date': _issueDate.toIso8601String().split('T')[0],
+                              'expiry_date': _expiryDate.toIso8601String().split('T')[0],
+                              'diagnosis': _diagnosisController.text.trim(),
+                              'notes': _notesController.text.trim(),
+                              'items': _prescriptionItems
+                                  .map((item) => ({
+                                        'medicine': item.medicineId,
+                                        'prescribed_quantity': item.quantity,
+                                        'dosage_instructions': item.dosageInstructions,
+                                        'duration': item.duration,
+                                      }))
+                                  .toList(),
+                            };
+
+                            final success = await provider.createPrescription(
+                              prescriptionData,
+                              imageBytes: _prescriptionImageBytes,
+                            );
+
+                            if (mounted) setState(() => _isSaving = false);
+
+                            if (success && mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('✅ Prescription saved successfully'),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                              _patientNameController.clear();
+                              _patientAgeController.clear();
+                              _patientPhoneController.clear();
+                              _doctorNameController.clear();
+                              _doctorLicenseController.clear();
+                              _hospitalController.clear();
+                              _diagnosisController.clear();
+                              _notesController.clear();
+                              if (mounted) {
+                                setState(() {
+                                  _prescriptionItems.clear();
+                                  _prescriptionImageBytes = null;
+                                  _issueDate = DateTime.now();
+                                  _expiryDate = DateTime.now().add(const Duration(days: 30));
+                                });
+                              }
+                            } else if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(provider.error ?? 'Failed to save prescription'),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          }
+                        },
                   isFullWidth: true,
                 ),
 
@@ -1169,7 +1231,7 @@ class _AddPrescriptionTabState extends State<AddPrescriptionTab> {
 }
 
 // ============================================================
-// PENDING PRESCRIPTIONS TAB (No changes needed)
+// PENDING PRESCRIPTIONS TAB
 // ============================================================
 
 class PendingPrescriptionsTab extends StatelessWidget {
@@ -1225,10 +1287,7 @@ class PendingPrescriptionsTab extends StatelessWidget {
                               children: [
                                 Text(
                                   rx.patientName,
-                                  style: GoogleFonts.poppins(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                  style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w600),
                                 ),
                                 Text(
                                   rx.prescriptionId,
@@ -1238,10 +1297,7 @@ class PendingPrescriptionsTab extends StatelessWidget {
                             ),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               color: Colors.orange.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(12),
@@ -1268,9 +1324,7 @@ class PendingPrescriptionsTab extends StatelessWidget {
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           TextButton.icon(
-                            onPressed: () {
-                              _showPrescriptionSummary(context, rx, provider);
-                            },
+                            onPressed: () => _showPrescriptionSummary(context, rx, provider),
                             icon: const Icon(Icons.visibility, size: 18),
                             label: const Text('VIEW'),
                           ),
@@ -1280,27 +1334,27 @@ class PendingPrescriptionsTab extends StatelessWidget {
                             height: 40,
                             child: ElevatedButton(
                               onPressed: () async {
-                                final result = await showDialog(
+                                final result = await showDialog<bool>(
                                   context: context,
                                   builder: (context) => FillPrescriptionDialog(prescription: rx),
                                 );
                                 if (result == true && context.mounted) {
-                                  provider.loadPrescriptions();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('✅ Prescription filled successfully')),
+                                  );
+                                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                                    if (context.mounted) provider.loadPrescriptions();
+                                  });
                                 }
                               },
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: AppColors.primaryGreen,
                                 foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                               ),
                               child: const Text(
                                 'FILL NOW',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                               ),
                             ),
                           ),
@@ -1317,7 +1371,11 @@ class PendingPrescriptionsTab extends StatelessWidget {
     );
   }
 
-  void _showPrescriptionSummary(BuildContext context, Prescription rx, PrescriptionProvider provider) {
+  void _showPrescriptionSummary(
+    BuildContext context,
+    Prescription rx,
+    PrescriptionProvider provider,
+  ) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1327,6 +1385,9 @@ class PendingPrescriptionsTab extends StatelessWidget {
       builder: (context) {
         return Container(
           padding: const EdgeInsets.all(24),
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.9,
+          ),
           child: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1334,12 +1395,16 @@ class PendingPrescriptionsTab extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      'Prescription Summary',
-                      style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold),
+                    Flexible(
+                      child: Text(
+                        'Prescription Summary',
+                        style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.bold),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                     IconButton(
                       icon: const Icon(Icons.download, color: Colors.blue),
+                      tooltip: 'Download PDF',
                       onPressed: () async {
                         await PrescriptionPdfService.generateAndDownload(rx);
                         if (context.mounted) {
@@ -1348,7 +1413,6 @@ class PendingPrescriptionsTab extends StatelessWidget {
                           );
                         }
                       },
-                      tooltip: 'Download PDF',
                     ),
                   ],
                 ),
@@ -1364,10 +1428,7 @@ class PendingPrescriptionsTab extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Expanded(
-                        child: Text(
-                          item.medicineName,
-                          style: GoogleFonts.poppins(),
-                        ),
+                        child: Text(item.medicineName, style: GoogleFonts.poppins()),
                       ),
                       Text(
                         '${item.filledQuantity}/${item.prescribedQuantity}',
@@ -1384,12 +1445,17 @@ class PendingPrescriptionsTab extends StatelessWidget {
                   text: 'FILL PRESCRIPTION',
                   onPressed: () {
                     Navigator.pop(context);
-                    showDialog(
+                    showDialog<bool>(
                       context: context,
                       builder: (context) => FillPrescriptionDialog(prescription: rx),
                     ).then((result) {
                       if (result == true && context.mounted) {
-                        provider.loadPrescriptions();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('✅ Prescription filled successfully')),
+                        );
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (context.mounted) provider.loadPrescriptions();
+                        });
                       }
                     });
                   },
@@ -1410,7 +1476,14 @@ class PendingPrescriptionsTab extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: GoogleFonts.poppins(color: Colors.grey)),
-          Text(value, style: GoogleFonts.poppins(fontWeight: FontWeight.w500)),
+          Flexible(
+            child: Text(
+              value,
+              style: GoogleFonts.poppins(fontWeight: FontWeight.w500),
+              textAlign: TextAlign.right,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ],
       ),
     );
@@ -1420,7 +1493,7 @@ class PendingPrescriptionsTab extends StatelessWidget {
 // ============================================================
 // HELPER MODEL CLASS
 // ============================================================
-
+ 
 class PrescriptionItemModel {
   final int medicineId;
   final String medicineName;
@@ -1435,279 +1508,4 @@ class PrescriptionItemModel {
     required this.dosageInstructions,
     required this.duration,
   });
-}
-
-// ============================================================
-// FILL PRESCRIPTION DIALOG (FIXED - No overflow)
-// ============================================================
-
-class FillPrescriptionDialog extends StatefulWidget {
-  final Prescription prescription;
-
-  const FillPrescriptionDialog({super.key, required this.prescription});
-
-  @override
-  State<FillPrescriptionDialog> createState() => _FillPrescriptionDialogState();
-}
-
-class _FillPrescriptionDialogState extends State<FillPrescriptionDialog> {
-  final Map<int, TextEditingController> _quantityControllers = {};
-  final Map<int, int> _maxQuantities = {};
-  bool _isLoading = false;
-
-  @override
-  void initState() {
-    super.initState();
-    for (var item in widget.prescription.items) {
-      if (item.remainingQuantity > 0) {
-        _maxQuantities[item.id] = item.remainingQuantity;
-        _quantityControllers[item.id] = TextEditingController(text: item.remainingQuantity.toString());
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    for (var controller in _quantityControllers.values) {
-      controller.dispose();
-    }
-    super.dispose();
-  }
-
-  Future<void> _submitFill() async {
-    final itemsToFill = <Map<String, dynamic>>[];
-    
-    for (var item in widget.prescription.items) {
-      if (item.remainingQuantity > 0) {
-        final controller = _quantityControllers[item.id];
-        final quantity = int.tryParse(controller?.text ?? '0') ?? 0;
-        
-        if (quantity > 0) {
-          if (quantity > item.remainingQuantity) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Cannot fill more than remaining quantity for ${item.medicineName}. Remaining: ${item.remainingQuantity}')),
-            );
-            return;
-          }
-          itemsToFill.add({
-            'item_id': item.id,
-            'quantity_filled': quantity,
-          });
-        }
-      }
-    }
-
-    if (itemsToFill.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No items to fill. Please enter quantities to fill.')),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    final result = await context.read<PrescriptionProvider>().fillPrescription(
-      widget.prescription.id,
-      itemsToFill,
-    );
-
-    if (!mounted) return;
-    setState(() => _isLoading = false);
-
-    if (result != null) {
-      Navigator.pop(context, true);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('✅ Prescription filled successfully! Status: ${result['status']}')),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.read<PrescriptionProvider>().error ?? 'Failed to fill prescription'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final hasFillableItems = widget.prescription.items.any((item) => item.remainingQuantity > 0);
-
-    if (!hasFillableItems) {
-      return Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Container(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.check_circle, color: Colors.green, size: 64),
-              const SizedBox(height: 16),
-              Text(
-                'All Items Filled',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 8),
-              const Text('This prescription has been fully filled.'),
-              const SizedBox(height: 16),
-              CustomButton(
-                text: 'OK',
-                onPressed: () => Navigator.pop(context),
-                width: 120,
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        width: MediaQuery.of(context).size.width * 0.9,
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.85,
-        ),
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Header Section
-            Text(
-              'Fill Prescription',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'RX: ${widget.prescription.prescriptionId}',
-              style: const TextStyle(color: Colors.grey),
-            ),
-            Text(
-              'Patient: ${widget.prescription.patientName}',
-              style: const TextStyle(color: Colors.grey),
-            ),
-            const Divider(height: 24),
-            
-            // Scrollable Items Section
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    for (var item in widget.prescription.items) ...[
-                      if (item.remainingQuantity <= 0)
-                        Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          color: Colors.green.shade50,
-                          child: ListTile(
-                            leading: const Icon(Icons.check_circle, color: Colors.green),
-                            title: Text(
-                              item.medicineName,
-                              style: const TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                            subtitle: Text('Fully filled: ${item.filledQuantity} of ${item.prescribedQuantity} units'),
-                            trailing: const Icon(Icons.done, color: Colors.green),
-                          ),
-                        )
-                      else
-                        Card(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  item.medicineName,
-                                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Prescribed: ${item.prescribedQuantity} units',
-                                  style: const TextStyle(fontSize: 13, color: Colors.grey),
-                                ),
-                                Text(
-                                  'Already filled: ${item.filledQuantity} units',
-                                  style: const TextStyle(fontSize: 13, color: Colors.orange),
-                                ),
-                                Text(
-                                  'Remaining to fill: ${item.remainingQuantity} units',
-                                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: Colors.blue),
-                                ),
-                                const SizedBox(height: 12),
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: TextField(
-                                        controller: _quantityControllers[item.id],
-                                        keyboardType: TextInputType.number,
-                                        decoration: InputDecoration(
-                                          labelText: 'Quantity to fill',
-                                          hintText: 'Max: ${item.remainingQuantity}',
-                                          border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    ElevatedButton(
-                                      onPressed: () {
-                                        _quantityControllers[item.id]?.text = item.remainingQuantity.toString();
-                                        setState(() {});
-                                      },
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.blue,
-                                      ),
-                                      child: const Text('FILL ALL'),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-            
-            const SizedBox(height: 20),
-            
-            // Buttons Section - Fixed at bottom (NO OVERFLOW)
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    child: const Text('CANCEL'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _submitFill,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        : const Text('CONFIRM FILL'),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

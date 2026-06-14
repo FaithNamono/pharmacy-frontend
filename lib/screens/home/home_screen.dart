@@ -123,6 +123,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }
 
   void _showMedicineDetails(Medicine medicine) {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final isAdmin = authProvider.currentUser?.isAdmin ?? false;
+    
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -263,13 +266,14 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                       child: const Text('Close'),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  if (medicine.isLowStock)
+                  // Only show "Order More" button to admin users
+                  if (isAdmin && medicine.isLowStock) const SizedBox(width: 12),
+                  if (isAdmin && medicine.isLowStock)
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () {
                           Navigator.pop(context);
-                          Navigator.pushNamed(context, '/add-stock', arguments: medicine.id);
+                          Navigator.pushNamed(context, '/add-medicine', arguments: medicine.id);
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.orange,
@@ -326,7 +330,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         titleSpacing: 12,
         title: Row(
           children: [
-            // Logo Image instead of icon
             Container(
               width: 36,
               height: 36,
@@ -337,7 +340,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(8),
                 child: Image.asset(
-                  'assets/images/logo.jpg',
+                  'assets/images/logo.png',
                   width: 36,
                   height: 36,
                   fit: BoxFit.cover,
@@ -469,14 +472,17 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   break;
               }
             },
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             itemBuilder: (context) => [
               const PopupMenuItem(
                 value: 'profile',
                 child: Row(
                   children: [
-                    Icon(Icons.person_outline, size: 18),
-                    SizedBox(width: 8),
-                    Text('My Profile'),
+                    Icon(Icons.person_outline, size: 20, color: AppColors.primaryGreen),
+                    SizedBox(width: 12),
+                    Text('My Profile', style: TextStyle(color: AppColors.primaryGreen)),
                   ],
                 ),
               ),
@@ -484,9 +490,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 value: 'settings',
                 child: Row(
                   children: [
-                    Icon(Icons.settings_outlined, size: 18),
-                    SizedBox(width: 8),
-                    Text('Settings'),
+                    Icon(Icons.settings_outlined, size: 20, color: AppColors.primaryGreen),
+                    SizedBox(width: 12),
+                    Text('Settings', style: TextStyle(color: AppColors.primaryGreen)),
                   ],
                 ),
               ),
@@ -494,9 +500,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 value: 'more',
                 child: Row(
                   children: [
-                    Icon(Icons.more_horiz, size: 18),
-                    SizedBox(width: 8),
-                    Text('More Features'),
+                    Icon(Icons.more_horiz, size: 20, color: AppColors.primaryGreen),
+                    SizedBox(width: 12),
+                    Text('More Features', style: TextStyle(color: AppColors.primaryGreen)),
                   ],
                 ),
               ),
@@ -504,8 +510,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 value: 'logout',
                 child: Row(
                   children: [
-                    Icon(Icons.logout, size: 18, color: Colors.red),
-                    SizedBox(width: 8),
+                    Icon(Icons.logout, size: 20, color: Colors.red),
+                    SizedBox(width: 12),
                     Text('Logout', style: TextStyle(color: Colors.red)),
                   ],
                 ),
@@ -520,41 +526,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           : _isSearching
               ? _buildSearchResults()
               : _buildMainContent(),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _selectedIndex,
-        onTap: (index) {
-          if (index == 0) {
-            setState(() => _selectedIndex = index);
-          } else {
-            _navigateToScreen(index);
-          }
-        },
-        type: BottomNavigationBarType.fixed,
-        selectedItemColor: AppColors.primaryGreen,
-        unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined, size: 22),
-            activeIcon: Icon(Icons.home, size: 22),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.medical_services_outlined, size: 22),
-            activeIcon: Icon(Icons.medical_services, size: 22),
-            label: 'Medicines',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.shopping_cart_outlined, size: 22),
-            activeIcon: Icon(Icons.shopping_cart, size: 22),
-            label: 'Sales',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.assessment_outlined, size: 22),
-            activeIcon: Icon(Icons.assessment, size: 22),
-            label: 'Reports',
-          ),
-        ],
-      ),
+      bottomNavigationBar: _buildBottomNavigationBar(isAdmin),
       floatingActionButton: _selectedIndex == 1
           ? FloatingActionButton(
               onPressed: () => Navigator.pushNamed(context, '/add-medicine'),
@@ -563,6 +535,67 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             )
           : null,
     );
+  }
+
+  // ✅ Dynamic bottom navigation bar based on user role
+  Widget _buildBottomNavigationBar(bool isAdmin) {
+    final List<BottomNavigationBarItem> items = [
+      const BottomNavigationBarItem(
+        icon: Icon(Icons.home_outlined, size: 22),
+        activeIcon: Icon(Icons.home, size: 22),
+        label: 'Home',
+      ),
+      const BottomNavigationBarItem(
+        icon: Icon(Icons.medical_services_outlined, size: 22),
+        activeIcon: Icon(Icons.medical_services, size: 22),
+        label: 'Medicines',
+      ),
+      const BottomNavigationBarItem(
+        icon: Icon(Icons.shopping_cart_outlined, size: 22),
+        activeIcon: Icon(Icons.shopping_cart, size: 22),
+        label: 'Sales',
+      ),
+    ];
+    
+    // ✅ Only add Reports tab for admin users
+    if (isAdmin) {
+      items.add(
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.assessment_outlined, size: 22),
+          activeIcon: Icon(Icons.assessment, size: 22),
+          label: 'Reports',
+        ),
+      );
+    }
+    
+    return BottomNavigationBar(
+      currentIndex: _selectedIndex,
+      onTap: (index) => _navigateToScreen(index, isAdmin),
+      type: BottomNavigationBarType.fixed,
+      selectedItemColor: AppColors.primaryGreen,
+      unselectedItemColor: Colors.grey,
+      items: items,
+    );
+  }
+
+  // ✅ Updated navigation with dynamic indices based on role
+  void _navigateToScreen(int index, bool isAdmin) {
+    if (index == 0) {
+      setState(() => _selectedIndex = index);
+    } else if (index == 1) {
+      Navigator.pushNamed(context, '/medicines').then((_) {
+        if (mounted) setState(() => _selectedIndex = 1);
+      });
+    } else if (index == 2) {
+      Navigator.pushNamed(context, '/sales').then((_) {
+        if (mounted) setState(() => _selectedIndex = 2);
+      });
+    } else if (index == 3 && isAdmin) {
+      // Reports tab (only exists for admin)
+      Navigator.pushNamed(context, '/reports').then((_) {
+        if (mounted) setState(() => _selectedIndex = 3);
+      });
+    }
   }
 
   Widget _buildSearchResults() {
@@ -682,7 +715,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Stats Cards
             Consumer2<MedicineProvider, SaleProvider>(
               builder: (context, medicineProvider, saleProvider, child) {
                 return GridView.count(
@@ -728,7 +760,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
             const SizedBox(height: 16),
 
-            // Sales Overview Chart
             Card(
               elevation: 2,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -780,7 +811,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
             const SizedBox(height: 16),
 
-            // Financial Overview
             Card(
               elevation: 2,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -861,12 +891,10 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
             const SizedBox(height: 16),
 
-            // Quick Actions
             _buildQuickActions(),
 
             const SizedBox(height: 16),
 
-            // Alerts Section
             Consumer<MedicineProvider>(
               builder: (context, provider, child) {
                 final hasLowStock = provider.lowStockMedicines.isNotEmpty;
@@ -925,7 +953,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
             const SizedBox(height: 16),
 
-            // Recent Sales Preview - FIXED navigation
             Consumer<SaleProvider>(
               builder: (context, provider, child) {
                 if (provider.dailySales.isEmpty) {
@@ -1271,7 +1298,28 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
+  // ✅ Updated Quick Actions - hides admin-only items from staff
   Widget _buildQuickActions() {
+    final authProvider = Provider.of<AuthProvider>(context);
+    final isAdmin = authProvider.currentUser?.isAdmin ?? false;
+    
+    // Define all possible quick actions with admin-only flag
+    final List<Map<String, dynamic>> allActions = [
+      {'label': 'New Sale', 'icon': Icons.add_shopping_cart, 'color': Colors.green, 'route': '/new-sale', 'adminOnly': false},
+      {'label': 'Add Med', 'icon': Icons.add_box, 'color': Colors.blue, 'route': '/add-medicine', 'adminOnly': true},
+      {'label': 'Stock', 'icon': Icons.inventory, 'color': Colors.brown, 'route': '/stock-take', 'adminOnly': true},
+      {'label': 'Credit', 'icon': Icons.credit_card, 'color': Colors.purple, 'route': '/credit', 'adminOnly': false},
+      {'label': 'Prescription', 'icon': Icons.description, 'color': Colors.teal, 'route': '/prescriptions', 'adminOnly': false},
+      {'label': 'Expense', 'icon': Icons.receipt, 'color': Colors.red, 'route': '/expenses', 'adminOnly': false},
+      {'label': 'Reports', 'icon': Icons.assessment, 'color': Colors.orange, 'route': '/reports', 'adminOnly': true},
+      {'label': 'More', 'icon': Icons.more_horiz, 'color': Colors.grey, 'route': '/more', 'adminOnly': false},
+    ];
+    
+    // Filter actions based on user role
+    final visibleActions = allActions.where((action) => 
+      !action['adminOnly'] || isAdmin
+    ).toList();
+    
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1290,16 +1338,14 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           mainAxisSpacing: 8,
           crossAxisSpacing: 8,
           childAspectRatio: 0.9,
-          children: [
-            _buildQuickActionItem('New Sale', Icons.add_shopping_cart, Colors.green, '/new-sale'),
-            _buildQuickActionItem('Add Med', Icons.add_box, Colors.blue, '/add-medicine'),
-            _buildQuickActionItem('Stock', Icons.inventory, Colors.brown, '/stock-take'),
-            _buildQuickActionItem('Credit', Icons.credit_card, Colors.purple, '/credit'),
-            _buildQuickActionItem('RX', Icons.description, Colors.teal, '/prescriptions'),
-            _buildQuickActionItem('Expense', Icons.receipt, Colors.red, '/expenses'),
-            _buildQuickActionItem('Reports', Icons.assessment, Colors.orange, '/reports'),
-            _buildQuickActionItem('More', Icons.more_horiz, Colors.grey, '/more'),
-          ],
+          children: visibleActions.map((action) {
+            return _buildQuickActionItem(
+              action['label'],
+              action['icon'],
+              action['color'],
+              action['route'],
+            );
+          }).toList(),
         ),
       ],
     );
@@ -1362,7 +1408,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  // FIXED: Recent sale card with correct navigation using sale_id
   Widget _buildRecentSaleCard(Sale sale) {
     return Card(
       margin: const EdgeInsets.only(bottom: 6),
@@ -1412,7 +1457,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
             ),
           ],
         ),
-        // FIXED: Use sale_id instead of id
         onTap: () {
           if (sale.saleId.isNotEmpty) {
             Navigator.pushNamed(
@@ -1480,6 +1524,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   itemCount: provider.lowStockMedicines.length,
                   itemBuilder: (context, index) {
                     final medicine = provider.lowStockMedicines[index];
+                    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+                    final isAdmin = authProvider.currentUser?.isAdmin ?? false;
+                    
                     return Card(
                       margin: const EdgeInsets.only(bottom: 6),
                       child: ListTile(
@@ -1504,18 +1551,21 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                           'Current: ${medicine.quantity} | Min: ${medicine.minStockLevel}',
                           style: const TextStyle(fontSize: 11),
                         ),
-                        trailing: ElevatedButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                            Navigator.pushNamed(context, '/add-stock', arguments: medicine.id);
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.orange,
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                            minimumSize: const Size(80, 30),
-                          ),
-                          child: const Text('Order', style: TextStyle(fontSize: 11)),
-                        ),
+                        // Only show Order button for admin
+                        trailing: isAdmin
+                            ? ElevatedButton(
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                  Navigator.pushNamed(context, '/add-medicine', arguments: medicine.id);
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.orange,
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                  minimumSize: const Size(80, 30),
+                                ),
+                                child: const Text('Order', style: TextStyle(fontSize: 11)),
+                              )
+                            : null,
                       ),
                     );
                   },
@@ -1800,26 +1850,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         const SizedBox(height: 8),
       ],
     );
-  }
-
-  void _navigateToScreen(int index) {
-    switch (index) {
-      case 1:
-        Navigator.pushNamed(context, '/medicines').then((_) {
-          if (mounted) setState(() => _selectedIndex = 1);
-        });
-        break;
-      case 2:
-        Navigator.pushNamed(context, '/sales').then((_) {
-          if (mounted) setState(() => _selectedIndex = 2);
-        });
-        break;
-      case 3:
-        Navigator.pushNamed(context, '/reports').then((_) {
-          if (mounted) setState(() => _selectedIndex = 3);
-        });
-        break;
-    }
   }
 
   Future<void> _showLogoutDialog() async {

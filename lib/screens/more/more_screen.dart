@@ -78,13 +78,7 @@ class MoreScreen extends StatelessWidget {
           if (isAdmin) ...[
             const SizedBox(height: 24),
             _buildSectionHeader('Administration'),
-            _buildMenuItem(
-              icon: Icons.people,
-              iconColor: Colors.blue,
-              title: 'Staff Management',
-              subtitle: 'Manage staff accounts',
-              onTap: () => Navigator.pushNamed(context, '/staff'),
-            ),
+            // ✅ Staff Management REMOVED
             _buildMenuItem(
               icon: Icons.settings,
               iconColor: Colors.grey,

@@ -1,41 +1,46 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  // Primary Colors - Your Green (#76BE53)
-  static const Color primaryGreen = Color(0xFF76BE53);
-  static const Color primaryLight = Color(0xFFE8F5E0);
-  static const Color primaryDark = Color(0xFF4A7A34);
-  static const Color veryLightGreen = Color(0xFFF1F8E9);
-  
+  // Logo Brand Colors
+  static const Color primaryGreen = Color(0xFF247647);
+  static const Color primaryLight = Color(0xFFE4F2EA);
+  static const Color primaryDark = Color(0xFF1B5A35);
+  static const Color veryLightGreen = Color(0xFFF4FAF6);
+
+  // Logo Navy Accent
+  static const Color logoNavy = Color(0xFF31354A);
+
   // Accent Colors
   static const Color accentBlue = Color(0xFF2196F3);
   static const Color accentOrange = Color(0xFFFF9800);
   static const Color accentRed = Color(0xFFF44336);
-  
+
   // Neutral Colors
   static const Color white = Color(0xFFFFFFFF);
   static const Color black = Color(0xFF000000);
-  static const Color darkText = Color(0xFF2C3E50);
-  static const Color mediumText = Color(0xFF5D6D7E);
-  static const Color lightText = Color(0xFF7F8C8D);
+
+  static const Color darkText = logoNavy;
+  static const Color mediumText = Color(0xFF4A5568);
+  static const Color lightText = Color(0xFF718096);
+
   static const Color darkGrey = Color(0xFF616161);
   static const Color backgroundLight = Color(0xFFF8FAFC);
   static const Color cardBackground = Color(0xFFFFFFFF);
-  static const Color dividerColor = Color(0xFFECF0F1);
-  
+  static const Color dividerColor = Color(0xFFE2E8F0);
+
   // Status Colors
-  static const Color success = Color(0xFF2ECC71);
+  static const Color success = primaryGreen;
   static const Color warning = Color(0xFFF39C12);
   static const Color error = Color(0xFFE74C3C);
   static const Color info = Color(0xFF3498DB);
-  
+
   // Gradient
   static const Gradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
     colors: [
-      Color(0xFF76BE53),
-      Color(0xFF8BC34A),
+      primaryGreen,
+      Color(0xFF2E8B57),
     ],
   );
 }
@@ -46,14 +51,14 @@ class AppStrings {
   static const String tagline = 'Your Trusted Pharmacy Partner';
   static const String welcome = 'Welcome to CT Pharmacy';
   static const String loading = 'Loading...';
-  
+
   static const String dashboard = 'Dashboard';
   static const String medicines = 'Medicines';
   static const String sales = 'Sales';
   static const String reports = 'Reports';
   static const String profile = 'Profile';
   static const String settings = 'Settings';
-  
+
   static const String add = 'Add';
   static const String edit = 'Edit';
   static const String delete = 'Delete';
@@ -79,10 +84,8 @@ class StorageKeys {
 }
 
 class AppConstants {
-  // API Base URL
-   static const String baseUrl = 'http://localhost:8000/api';
-  
-  // API Endpoints
+  static const String baseUrl = 'http://localhost:8000/api';
+
   static const String loginEndpoint = '/auth/login/';
   static const String logoutEndpoint = '/auth/logout/';
   static const String registerEndpoint = '/auth/register/';
@@ -98,12 +101,10 @@ class AppConstants {
   static const String salesEndpoint = '/sales/';
   static const String reportsEndpoint = '/reports/';
 
-  // Storage Keys
   static const String tokenKey = StorageKeys.token;
   static const String userKey = StorageKeys.user;
   static const String themeKey = StorageKeys.theme;
-  
-  // Spacing
+
   static const double paddingSmallest = 4.0;
   static const double paddingSmall = 8.0;
   static const double paddingMedium = 16.0;
@@ -111,7 +112,6 @@ class AppConstants {
   static const double paddingExtraLarge = 32.0;
   static const double paddingHuge = 48.0;
 
-  // Font Sizes
   static const double fontSizeTiny = 10.0;
   static const double fontSizeSmall = 12.0;
   static const double fontSizeMedium = 14.0;
@@ -121,19 +121,16 @@ class AppConstants {
   static const double fontSizeTitle = 24.0;
   static const double fontSizeDisplay = 32.0;
 
-  // Border Radius
   static const double radiusSmall = 4.0;
   static const double radiusMedium = 8.0;
   static const double radiusLarge = 12.0;
   static const double radiusExtraLarge = 16.0;
   static const double radiusCircular = 100.0;
 
-  // Elevation
   static const double elevationNone = 0.0;
   static const double elevationSmall = 2.0;
   static const double elevationMedium = 4.0;
   static const double elevationLarge = 8.0;
-  
-  // Colors (for backward compatibility)
+
   static const Color primaryColor = AppColors.primaryGreen;
 }

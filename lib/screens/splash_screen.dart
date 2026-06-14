@@ -55,7 +55,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
           MaterialPageRoute(builder: (context) => const OnboardingScreen()),
         );
       } else if (token != null && token.isNotEmpty) {
-        // ✅ CHANGE THIS: Use '/home' instead of '/dashboard'
         Navigator.pushReplacementNamed(context, '/home');
       } else {
         Navigator.pushReplacementNamed(context, '/login');
@@ -86,7 +85,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                   width: 140,
                   height: 140,
                   child: Image.asset(
-                    'assets/images/logo.jpg',
+                    'assets/images/logo2.png',
                     fit: BoxFit.contain,
                     cacheWidth: 280,
                     cacheHeight: 280,

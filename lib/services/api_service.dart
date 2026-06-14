@@ -8,7 +8,7 @@ class ApiService {
   final StorageService _storageService;
 
   // FOR FLUTTER WEB + DJANGO
-  static const String baseUrl = 'http://127.0.0.1:8000';
+  static const String baseUrl = 'https://dervin-pharmacy-api.onrender.com';
 
   ApiService(this._storageService);
 

@@ -115,225 +115,259 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
   }
 
   void _showMedicineSelector() {
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder: (BuildContext dialogContext) {
-        String searchQuery = '';
-        
-        return StatefulBuilder(
-          builder: (context, setStateDialog) {
-            return Dialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Container(
-                height: MediaQuery.of(context).size.height * 0.7,
-                width: double.maxFinite,
-                child: Column(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryGreen,
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(20),
-                          topRight: Radius.circular(20),
-                        ),
+  showDialog(
+    context: context,
+    barrierDismissible: true,
+    builder: (BuildContext dialogContext) {
+      String searchQuery = '';
+      
+      return StatefulBuilder(
+        builder: (context, setStateDialog) {
+          return Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Container(
+              height: MediaQuery.of(context).size.height * 0.7,
+              width: double.maxFinite,
+              child: Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryGreen,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(20),
+                        topRight: Radius.circular(20),
                       ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.medical_services, color: Colors.white),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Text(
-                              'Add Medicine',
-                              style: GoogleFonts.poppins(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.medical_services, color: Colors.white),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Add Medicine',
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
                             ),
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.close, color: Colors.white),
-                            onPressed: () => Navigator.pop(dialogContext),
-                          ),
-                        ],
-                      ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, color: Colors.white),
+                          onPressed: () => Navigator.pop(dialogContext),
+                        ),
+                      ],
                     ),
-                    
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: TextField(
-                        autofocus: true,
-                        decoration: InputDecoration(
-                          hintText: 'Search medicine...',
-                          prefixIcon: const Icon(Icons.search),
-                          suffixIcon: searchQuery.isNotEmpty
-                              ? IconButton(
-                                  icon: const Icon(Icons.clear),
+                  ),
+                  
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: TextField(
+                      autofocus: true,
+                      decoration: InputDecoration(
+                        hintText: 'Search medicine...',
+                        prefixIcon: const Icon(Icons.search),
+                        suffixIcon: searchQuery.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(Icons.clear),
+                                onPressed: () {
+                                  setStateDialog(() {
+                                    searchQuery = '';
+                                  });
+                                },
+                              )
+                            : null,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      onChanged: (value) {
+                        setStateDialog(() {
+                          searchQuery = value;
+                        });
+                      },
+                    ),
+                  ),
+                  
+                  Expanded(
+                    child: Consumer<MedicineProvider>(
+                      builder: (context, provider, child) {
+                        if (provider.isLoading && provider.medicines.isEmpty) {
+                          return const Center(child: CircularProgressIndicator());
+                        }
+                        
+                        final today = DateTime.now();
+                        final todayMidnight = DateTime(today.year, today.month, today.day);
+                        
+                        var availableMedicines = provider.medicines
+                            .where((m) => m.expiryDate.isAfter(todayMidnight) && m.quantity > 0)
+                            .toList();
+                        
+                        if (searchQuery.isNotEmpty) {
+                          availableMedicines = availableMedicines.where((m) =>
+                            m.name.toLowerCase().contains(searchQuery.toLowerCase()) ||
+                            m.genericName.toLowerCase().contains(searchQuery.toLowerCase())
+                          ).toList();
+                        }
+
+                        if (availableMedicines.isEmpty) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.medical_services_outlined, size: 64, color: Colors.grey.shade400),
+                                const SizedBox(height: 16),
+                                Text(
+                                  searchQuery.isEmpty ? 'No available medicines' : 'No matching medicines',
+                                  style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey.shade600),
+                                ),
+                                const SizedBox(height: 16),
+                                ElevatedButton.icon(
                                   onPressed: () {
-                                    setStateDialog(() {
-                                      searchQuery = '';
+                                    Navigator.pop(dialogContext);
+                                    Navigator.pushNamed(context, '/add-medicine').then((_) {
+                                      _loadMedicines();
                                     });
                                   },
-                                )
-                              : null,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        onChanged: (value) {
-                          setStateDialog(() {
-                            searchQuery = value;
-                          });
-                        },
-                      ),
-                    ),
-                    
-                    Expanded(
-                      child: Consumer<MedicineProvider>(
-                        builder: (context, provider, child) {
-                          if (provider.isLoading && provider.medicines.isEmpty) {
-                            return const Center(child: CircularProgressIndicator());
-                          }
-                          
-                          final today = DateTime.now();
-                          final todayMidnight = DateTime(today.year, today.month, today.day);
-                          
-                          var availableMedicines = provider.medicines
-                              .where((m) => m.expiryDate.isAfter(todayMidnight) && m.quantity > 0)
-                              .toList();
-                          
-                          if (searchQuery.isNotEmpty) {
-                            availableMedicines = availableMedicines.where((m) =>
-                              m.name.toLowerCase().contains(searchQuery.toLowerCase()) ||
-                              m.genericName.toLowerCase().contains(searchQuery.toLowerCase())
-                            ).toList();
-                          }
-
-                          if (availableMedicines.isEmpty) {
-                            return Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(Icons.medical_services_outlined, size: 64, color: Colors.grey.shade400),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    searchQuery.isEmpty ? 'No available medicines' : 'No matching medicines',
-                                    style: GoogleFonts.poppins(fontSize: 16, color: Colors.grey.shade600),
+                                  icon: const Icon(Icons.add),
+                                  label: const Text('Add New Medicine'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppColors.primaryGreen,
                                   ),
-                                  const SizedBox(height: 16),
-                                  ElevatedButton.icon(
-                                    onPressed: () {
-                                      Navigator.pop(dialogContext);
-                                      Navigator.pushNamed(context, '/add-medicine').then((_) {
-                                        _loadMedicines();
-                                      });
-                                    },
-                                    icon: const Icon(Icons.add),
-                                    label: const Text('Add New Medicine'),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppColors.primaryGreen,
-                                    ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        return ListView.builder(
+                          padding: const EdgeInsets.all(8),
+                          itemCount: availableMedicines.length,
+                          itemBuilder: (context, index) {
+                            final medicine = availableMedicines[index];
+                            final isLowStock = medicine.quantity <= medicine.minStockLevel;
+                            final alreadyInCart = _cartItems.any((item) => item.medicine.id == medicine.id);
+                            
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(12),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.grey.shade200,
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
                                   ),
                                 ],
                               ),
-                            );
-                          }
-
-                          return ListView.builder(
-                            padding: const EdgeInsets.all(8),
-                            itemCount: availableMedicines.length,
-                            itemBuilder: (context, index) {
-                              final medicine = availableMedicines[index];
-                              final isLowStock = medicine.quantity <= medicine.minStockLevel;
-                              final alreadyInCart = _cartItems.any((item) => item.medicine.id == medicine.id);
-                              
-                              return Card(
-                                margin: const EdgeInsets.only(bottom: 8),
-                                child: ListTile(
-                                  leading: CircleAvatar(
-                                    backgroundColor: isLowStock ? Colors.orange : Colors.green,
-                                    child: Text(
-                                      medicine.quantity.toString(),
-                                      style: const TextStyle(color: Colors.white, fontSize: 12),
-                                    ),
-                                  ),
-                                  title: Text(
-                                    medicine.name,
-                                    style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
-                                  ),
-                                  subtitle: Text(
-                                    'Stock: ${medicine.quantity} | UGX ${medicine.retailPrice.toStringAsFixed(0)}',
-                                    style: GoogleFonts.poppins(fontSize: 12),
-                                  ),
-                                  trailing: alreadyInCart
-                                      ? Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                          decoration: BoxDecoration(
-                                            color: Colors.green.withOpacity(0.2),
-                                            borderRadius: BorderRadius.circular(8),
-                                          ),
-                                          child: const Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(Icons.check_circle, color: Colors.green, size: 16),
-                                              SizedBox(width: 4),
-                                              Text(
-                                                'Added',
-                                                style: TextStyle(
-                                                  color: Colors.green,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 12,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        )
-                                      : ElevatedButton(
-                                          onPressed: () {
-                                            Navigator.pop(dialogContext);
-                                            _showQuantityDialog(medicine);
-                                          },
-                                          style: ElevatedButton.styleFrom(
-                                            backgroundColor: AppColors.primaryGreen,
-                                            foregroundColor: Colors.white,
-                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius: BorderRadius.circular(8),
-                                            ),
-                                          ),
-                                          child: const Text(
-                                            'ADD',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontWeight: FontWeight.bold,
-                                              fontSize: 12,
-                                            ),
-                                          ),
-                                        ),
+                              child: Material(
+                                color: Colors.transparent,
+                                child: InkWell(
                                   onTap: () {
                                     Navigator.pop(dialogContext);
                                     _showQuantityDialog(medicine);
                                   },
+                                  borderRadius: BorderRadius.circular(12),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: Row(
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 20,
+                                          backgroundColor: isLowStock ? Colors.orange : Colors.green,
+                                          child: Text(
+                                            medicine.quantity.toString(),
+                                            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                medicine.name,
+                                                style: GoogleFonts.poppins(
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 14,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                'Stock: ${medicine.quantity} | UGX ${medicine.retailPrice.toStringAsFixed(0)}',
+                                                style: GoogleFonts.poppins(
+                                                  fontSize: 11,
+                                                  color: Colors.grey.shade600,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        if (alreadyInCart)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: Colors.green.withOpacity(0.1),
+                                              borderRadius: BorderRadius.circular(20),
+                                            ),
+                                            child: const Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(Icons.check_circle, color: Colors.green, size: 14),
+                                                SizedBox(width: 4),
+                                                Text(
+                                                  'Added',
+                                                  style: TextStyle(
+                                                    color: Colors.green,
+                                                    fontWeight: FontWeight.w500,
+                                                    fontSize: 11,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          )
+                                        else
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                                            decoration: BoxDecoration(
+                                              color: AppColors.primaryGreen,
+                                              borderRadius: BorderRadius.circular(20),
+                                            ),
+                                            child: const Text(
+                                              'ADD',
+                                              style: TextStyle(
+                                                color: Colors.white,
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
-                              );
-                            },
-                          );
-                        },
-                      ),
+                              ),
+                            );
+                          },
+                        );
+                      },
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            );
-          },
-        );
-      },
-    );
-  }
+            ),
+          );
+        },
+      );
+    },
+  );
+}
 
   void _showQuantityDialog(Medicine medicine) {
     int quantity = 1;
@@ -424,91 +458,255 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
     );
   }
 
-  void _showReceiptOptions(SaleGroup saleGroup) {
+  // ============================================================
+  // RECEIPT OPTIONS DIALOGS
+  // ============================================================
+
+  void _showReceiptOptionsDialog(SaleGroup saleGroup) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Row(
+            children: [
+              Icon(Icons.receipt, color: AppColors.primaryGreen),
+              const SizedBox(width: 8),
+              Text(
+                'Sale Completed!',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Your sale has been completed successfully.',
+                style: GoogleFonts.poppins(fontSize: 14),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              Text(
+                'Would you like to generate a receipt?',
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context); // Close dialog
+                Navigator.pop(context, true); // Go back to sales list
+              },
+              child: Text(
+                'NO, THANKS',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey,
+                ),
+              ),
+            ),
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pop(context); // Close this dialog
+                _showReceiptTypeOptions(saleGroup);
+              },
+              icon: const Icon(Icons.receipt, size: 18),
+              label: Text(
+                'YES, GENERATE',
+                style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryGreen,
+                foregroundColor: Colors.white,
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showReceiptTypeOptions(SaleGroup saleGroup) {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
+      backgroundColor: Colors.white,
       builder: (BuildContext context) {
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  'Receipt Options',
-                  style: GoogleFonts.poppins(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Receipt Options',
+                      style: GoogleFonts.poppins(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.primaryGreen,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Choose how you want to receive your receipt',
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const Divider(),
+              const Divider(height: 1),
               ListTile(
-                leading: const Icon(Icons.print, color: AppColors.primaryGreen),
-                title: const Text('Print Receipt'),
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryGreen.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.print,
+                    color: AppColors.primaryGreen,
+                    size: 24,
+                  ),
+                ),
+                title: Text(
+                  'Print Receipt',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
+                ),
+                subtitle: Text(
+                  'Send to printer',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                 onTap: () async {
                   Navigator.pop(context);
-                  try {
-                    await PdfService.generateSaleReceipt(saleGroup);
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Receipt generated and downloaded'),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
-                    }
-                  } catch (e) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Error: $e'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
-                  }
+                  await _generateReceipt(saleGroup, isPrint: true);
                 },
               ),
+              const Divider(height: 1),
               ListTile(
-                leading: const Icon(Icons.download, color: Colors.blue),
-                title: const Text('Download Receipt'),
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(
+                    Icons.download,
+                    color: Colors.blue,
+                    size: 24,
+                  ),
+                ),
+                title: Text(
+                  'Download Receipt',
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
+                ),
+                subtitle: Text(
+                  'Save as PDF file',
+                  style: GoogleFonts.poppins(
+                    fontSize: 12,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                 onTap: () async {
                   Navigator.pop(context);
-                  try {
-                    await PdfService.generateSaleReceipt(saleGroup);
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Receipt downloaded successfully'),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
-                    }
-                  } catch (e) {
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Error: $e'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
-                  }
+                  await _generateReceipt(saleGroup, isPrint: false);
                 },
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
             ],
           ),
         );
       },
     );
   }
+
+  Future<void> _generateReceipt(SaleGroup saleGroup, {required bool isPrint}) async {
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+    
+    try {
+      await PdfService.generateSaleReceipt(saleGroup);
+      
+      // Close loading
+      if (mounted) Navigator.pop(context);
+      
+      // Show success message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isPrint ? 'Receipt sent to printer!' : 'Receipt downloaded successfully!',
+              style: GoogleFonts.poppins(),
+            ),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+      
+      // Go back to sales list
+      if (mounted) Navigator.pop(context, true);
+      
+    } catch (e) {
+      // Close loading
+      if (mounted) Navigator.pop(context);
+      
+      // Show error
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to generate receipt: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        // Still go back
+        Navigator.pop(context, true);
+      }
+    }
+  }
+
+  // ============================================================
+  // PROCESS SALE
+  // ============================================================
 
   Future<void> _processSale() async {
     if (_cartItems.isEmpty) {
@@ -560,8 +758,8 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
       }
       
       if (saleGroup != null && saleGroup.saleId.isNotEmpty) {
-        _showReceiptOptions(saleGroup);
-        Navigator.pop(context, true);
+        // Show receipt options dialog (ask user what they want)
+        _showReceiptOptionsDialog(saleGroup);
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -590,6 +788,8 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
+        backgroundColor: AppColors.primaryGreen,
+        foregroundColor: Colors.white,
       ),
       body: Column(
         children: [
@@ -599,7 +799,7 @@ class _NewSaleScreenState extends State<NewSaleScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // ADD TO CART BUTTON - MAIN BUTTON
+                  // ADD TO CART BUTTON
                   Container(
                     width: double.infinity,
                     decoration: BoxDecoration(

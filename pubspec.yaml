@@ -1,5 +1,5 @@
-name: ct_pharmacy
-description: CT Pharmacy Management System
+name: Dervin_pharmacy
+description: Dervin Pharmacy Management System
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -63,7 +63,9 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/images/logo.jpg
+    - assets/images/logo.png
+    - assets/images/logo1.png
+    - assets/images/logo2.png
     - assets/icons/
   fonts:
     - family: NotoSans
